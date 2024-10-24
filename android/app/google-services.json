@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1066594973061",
+    "project_id": "huntingapp-861e0",
+    "storage_bucket": "huntingapp-861e0.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1066594973061:android:dee3b1d00b5eee563d40ec",
+        "android_client_info": {
+          "package_name": "com.barzilov.huntingApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBToCORLmPf62bR-_hFXp4Gb4_ROD63Hi8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
