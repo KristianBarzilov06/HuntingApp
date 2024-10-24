@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Alert } from 'react-native';
+import { View, TextInput, Button, Alert, TouchableOpacity, Text  } from 'react-native';
 import { auth } from '../firebaseConfig'; // Импортирай auth
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -36,6 +36,14 @@ const RegisterView = ({ navigation }) => {
                 onChangeText={setPassword} 
             />
             <Button title="Регистрация" onPress={handleRegister} />
+            
+            <View style={{ marginTop: 20 }}>
+                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                    <Text style={{ color: 'blue', textAlign: 'center' }}>
+                        Вече имате акаунт? Вход
+                    </Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
