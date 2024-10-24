@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert } from 'react-native';
+import { auth } from '../firebaseConfig'; // Импортирай auth
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 const RegisterView = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
 
-    const handleRegister = () => {
-        if (email === '' || password === '' || confirmPassword === '') {
+    const handleRegister = async () => {
+        if (email === '' || password === '') {
             Alert.alert("Моля, попълнете всички полета.");
             return;
         }
-        if (password !== confirmPassword) {
-            Alert.alert("Паролите не съвпадат.");
-            return;
-        }
 
-        // Имплементирай логиката за регистрация (напр. API повикване)
-        // При успешна регистрация
-        navigation.navigate('Login');
+        try {
+            await createUserWithEmailAndPassword(auth, email, password);
+            Alert.alert("Успешна регистрация!");
+            navigation.navigate('Login');
+        } catch (error) {
+            Alert.alert("Грешка при регистрация: " + error.message);
+        }
     };
 
     return (
@@ -33,12 +34,6 @@ const RegisterView = ({ navigation }) => {
                 secureTextEntry 
                 value={password} 
                 onChangeText={setPassword} 
-            />
-            <TextInput 
-                placeholder="Повтори паролата" 
-                secureTextEntry 
-                value={confirmPassword} 
-                onChangeText={setConfirmPassword} 
             />
             <Button title="Регистрация" onPress={handleRegister} />
         </View>
