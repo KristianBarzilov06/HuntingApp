@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Alert, TouchableOpacity, Text  } from 'react-native';
-import { auth } from '../firebaseConfig'; // Импортирай auth
+import { View, TextInput, TouchableOpacity, Text, Alert, Image } from 'react-native';
+import { auth } from '../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import styles from '../src/styles/RegisterStyles';
 
 const RegisterView = ({ navigation }) => {
     const [email, setEmail] = useState('');
@@ -23,27 +24,34 @@ const RegisterView = ({ navigation }) => {
     };
 
     return (
-        <View>
-            <TextInput 
-                placeholder="Имейл" 
-                value={email} 
-                onChangeText={setEmail} 
-            />
-            <TextInput 
-                placeholder="Парола" 
-                secureTextEntry 
-                value={password} 
-                onChangeText={setPassword} 
-            />
-            <Button title="Регистрация" onPress={handleRegister} />
-            
-            <View style={{ marginTop: 20 }}>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                    <Text style={{ color: 'blue', textAlign: 'center' }}>
-                        Вече имате акаунт? Вход
-                    </Text>
+        <View style={styles.container}>
+            <Text style={styles.title}>Регистрация</Text>
+            <View style={styles.inputContainer}>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Имейл"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholderTextColor="#242c0f"
+                />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Парола"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholderTextColor="#242c0f"
+                />
+
+                <TouchableOpacity style={styles.button} onPress={handleRegister}>
+                    <Text style={styles.buttonText}>Регистрация</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.linkTouchable} onPress={() => navigation.navigate('Login')}>
+                    <Text style={styles.linkText}>Вече имате акаунт?</Text>
                 </TouchableOpacity>
             </View>
+            <Image source={require('../images/boar1.png')} style={styles.image}resizeMode="contain"/>
         </View>
     );
 };

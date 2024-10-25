@@ -3,8 +3,9 @@ import { StyleSheet } from 'react-native';
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#9db23a', // Светло зелено
-    padding: 10,
+    backgroundColor: '#334603', // Тъмно зелено
+    padding: 15,
+    paddingTop: 35,
   },
   header: {
     flexDirection: 'row',
@@ -19,11 +20,12 @@ export default StyleSheet.create({
   profileText: {
     fontSize: 18,
     marginLeft: 5,
-    color: '#242c0f', // тъмно зелено
+    color: '#242c0f', // Тъмно зелено
   },
   searchInput: {
     flex: 1,
     marginLeft: 10,
+    backgroundColor: '#D9D9D9',
     padding: 5,
     borderWidth: 1,
     borderColor: 'black',
@@ -32,6 +34,24 @@ export default StyleSheet.create({
   },
   groupList: {
     marginTop: 10,
+    paddingRight: 10,
+  },
+  listContainer: {
+    backgroundColor: '#8FBA1D', 
+    borderRadius: 15,
+    overflow: 'hidden',
+    marginBottom: 10,
+    padding: 10,
+    position: 'relative', // For positioning the reset button
+  },
+  resetButton: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    backgroundColor: '#fff', // Optional background for the button
+    borderRadius: 10,
+    padding: 5,
+    elevation: 2, // Add some elevation for better visibility
   },
   groupItem: {
     flexDirection: 'row',
@@ -46,21 +66,21 @@ export default StyleSheet.create({
     flexDirection: 'column',
   },
   groupName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: 'black',
   },
   groupChairman: {
-    fontSize: 14,
+    fontSize: 12,
     color: 'black',
   },
   joinButton: {
-    backgroundColor: '#242c0f', // Тъмно зелено, за да съответства на твоята тема
+    backgroundColor: '#242c0f',
     padding: 10,
     borderRadius: 10,
   },
   joinButtonText: {
-    color: '#ffb400', // Оранжев текст на бутона, както е в твоя оригинален стил
+    color: '#ffb400',
     fontSize: 16,
   },
 });
