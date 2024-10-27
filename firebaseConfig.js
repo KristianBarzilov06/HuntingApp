@@ -1,8 +1,10 @@
 import { initializeApp } from "firebase/app";
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
-// import { getAnalytics, isSupported } from "firebase/analytics"; // Премахни или коментирай
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage'; // Import Firebase Storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Firebase конфигурация
 const firebaseConfig = {
   apiKey: "AIzaSyDR9KZhydET4e0PJ7vv_0t9r09rONX6wdg",
   authDomain: "huntingappchat-88aa7.firebaseapp.com",
@@ -13,22 +15,13 @@ const firebaseConfig = {
   measurementId: "G-HF3N0M89VS"
 };
 
-// Initialize Firebase
+// Инициализация на Firebase
 const app = initializeApp(firebaseConfig);
 const auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+  persistence: getReactNativePersistence(AsyncStorage),
 });
+const firestore = getFirestore(app);
+const storage = getStorage(app); // Initialize Firebase Storage
 
-
-// Можеш да премахнеш инициализацията на Analytics
-/*
-isSupported().then((supported) => {
-  if (supported) {
-    const analytics = getAnalytics(app);
-  } else {
-    console.warn("Firebase Analytics is not supported in this environment.");
-  }
-});
-*/
-
-export { app, auth };
+// Износ на инициализираните инстанции
+export { app, auth, firestore, storage };

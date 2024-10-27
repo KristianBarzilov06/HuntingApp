@@ -43,6 +43,9 @@ const MainView = ({ navigation }) => {
     setSearchQuery('');
     setFilteredGroups(groups);
   };
+  const joinGroup = (group) => {
+    navigation.navigate('ChatScreen', { groupId: group.id, groupName: group.name });
+  };
 
   return (
     <View style={styles.container}>
@@ -74,7 +77,7 @@ const MainView = ({ navigation }) => {
                 <Text style={styles.groupName}>{group.name}</Text>
                 <Text style={styles.groupChairman}>Председател: {group.chairman}</Text>
               </View>
-              <TouchableOpacity style={styles.joinButton}>
+              <TouchableOpacity style={styles.joinButton} onPress={() => joinGroup(group)}>
                 <Text style={styles.joinButtonText}>Присъедини се</Text>
               </TouchableOpacity>
             </View>

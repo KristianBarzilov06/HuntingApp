@@ -1,0 +1,146 @@
+import { StyleSheet } from 'react-native';
+
+export default StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    paddingLeft:1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#334603',
+    paddingBottom:20,
+    padding:15,
+    zIndex:9,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 20,
+    marginLeft: 10,
+    marginTop:30,
+  },
+  messageList: {
+    flex: 1,
+    padding: 10,
+  },
+  messageContent: {
+    padding: 10,
+    borderRadius: 5,
+    backgroundColor: 'transparent',
+    flex: 1,
+  },
+  messageItem: {
+    padding: 4,
+    marginRight:10,
+    borderRadius: 10,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '85%',
+    marginLeft: 1,
+    marginRight: 1,
+  },
+  myMessage: {
+    backgroundColor: '#A8E6CE',
+    alignSelf: 'flex-center',
+    marginLeft: 'auto',
+  },
+  otherMessage: {
+    backgroundColor: '#D9D9D9',
+    alignSelf: 'flex-start',
+  },
+  messageText: {
+    fontSize: 16,
+    padding: 10,
+    borderRadius: 5,
+  },
+  profileIcon: {
+    width: 0,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  profileIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 10,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    paddingBottom: 10,
+    backgroundColor: '#FFF',
+    borderTopLeftRadius:20,
+    borderTopRightRadius:20,
+    marginTop:10,
+  },
+  input: {
+    flex: 1,
+    padding: 10,
+    borderColor: '#D9D9D9',
+    borderWidth: 2,
+    borderRadius: 20,
+    marginHorizontal: 5,
+    maxWidth: '70%',
+  },
+  icon: {
+    marginHorizontal: 5,
+  },
+  messageContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-center',
+    marginBottom: 1,
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  profileIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  camera: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'black',
+  },
+  cameraControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    position: 'absolute',
+    bottom: 30,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 92,
+    left: 0,
+    right: 0, // Span the entire width
+    backgroundColor: '#8FBA1D', // Set to a green color
+    borderBottomLeftRadius:30,
+    borderBottomRightRadius:30,
+    paddingVertical: 10, // Add vertical padding
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 8, // Ensure it is above the content
+  },
+  menuItem: {
+    padding: 15, // Increased padding for better spacing
+    fontSize: 16,
+    color: 'white', // Change text color to white for better contrast
+  },
+});
