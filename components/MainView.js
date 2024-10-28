@@ -3,7 +3,10 @@ import { View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons'; // За иконки
 import styles from '../src/styles/MainStyles'; 
 
-const MainView = ({ navigation }) => {
+const MainView = ({ navigation, route }) => {
+  // Вземете userEmail от параметрите
+  const { userEmail } = route.params || {}; 
+
   // Примерен списък с групи
   const groups = [
     { id: 1, name: 'ЛРД-Дюлево', chairman: 'Някой Няков' },
@@ -43,15 +46,16 @@ const MainView = ({ navigation }) => {
     setSearchQuery('');
     setFilteredGroups(groups);
   };
+
+  // Функция за присъединяване към група
   const joinGroup = (group) => {
-    navigation.navigate('ChatScreen', { groupId: group.id, groupName: group.name });
+    navigation.navigate('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
   };
 
   return (
     <View style={styles.container}>
-      {/* Горна част с бутон за профил и търсене */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
+        <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile', { userEmail })}>
           <Ionicons name="person-circle-outline" size={40} color="black" />
           <Text style={styles.profileText}>Профил</Text>
         </TouchableOpacity>
@@ -67,7 +71,7 @@ const MainView = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* New Container for Group List */}
+      {/* Нов контейнер за списък с групи */}
       <View style={styles.listContainer}>
         {/* Списък с групи */}
         <ScrollView style={styles.groupList}>

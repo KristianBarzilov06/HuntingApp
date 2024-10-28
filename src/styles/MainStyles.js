@@ -28,9 +28,8 @@ export default StyleSheet.create({
     backgroundColor: '#D9D9D9',
     padding: 5,
     borderWidth: 1,
-    borderColor: 'black',
+    borderColor: '#ffffff',
     borderRadius: 5,
-    color: 'black',
   },
   groupList: {
     marginTop: 10,
