@@ -27,10 +27,16 @@
         "CAMERA",
         "WRITE_EXTERNAL_STORAGE",
         "READ_EXTERNAL_STORAGE"
-      ]
+      ],
+      "package": "com.kristianbarzilov06.HuntingApp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d923855f-b6a8-462f-bc4d-ad7fb1bcfe24"
+      }
     }
   }
 }

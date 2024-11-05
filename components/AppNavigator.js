@@ -1,6 +1,6 @@
 import { createStackNavigator } from '@react-navigation/stack';
-import ChatScreen from './ChatScreen'; // Adjust the path as necessary
-import MainView from './MainView'; // Adjust the path as necessary
+import ChatScreen from './ChatScreen';
+import MainView from './MainView';
 
 const Stack = createStackNavigator();
 

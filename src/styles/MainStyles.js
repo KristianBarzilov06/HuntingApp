@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#334603', // Тъмно зелено
+    backgroundColor: '#334603',
     padding: 15,
     paddingTop: 35,
   },
@@ -20,7 +20,7 @@ export default StyleSheet.create({
   profileText: {
     fontSize: 18,
     marginLeft: 5,
-    color: '#242c0f', // Тъмно зелено
+    color: '#242c0f',
   },
   searchInput: {
     flex: 1,
@@ -41,16 +41,16 @@ export default StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 10,
     padding: 10,
-    position: 'relative', // For positioning the reset button
+    position: 'relative',
   },
   resetButton: {
     position: 'absolute',
     right: 10,
     bottom: 10,
-    backgroundColor: '#fff', // Optional background for the button
+    backgroundColor: '#fff',
     borderRadius: 10,
     padding: 5,
-    elevation: 2, // Add some elevation for better visibility
+    elevation: 2,
   },
   groupItem: {
     flexDirection: 'row',

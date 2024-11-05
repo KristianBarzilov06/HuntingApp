@@ -126,21 +126,21 @@ export default StyleSheet.create({
     position: 'absolute',
     top: 92,
     left: 0,
-    right: 0, // Span the entire width
-    backgroundColor: '#8FBA1D', // Set to a green color
+    right: 0,
+    backgroundColor: '#8FBA1D',
     borderBottomLeftRadius:30,
     borderBottomRightRadius:30,
-    paddingVertical: 10, // Add vertical padding
+    paddingVertical: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
-    zIndex: 8, // Ensure it is above the content
+    zIndex: 8,
   },
   menuItem: {
-    padding: 15, // Increased padding for better spacing
+    padding: 15,
     fontSize: 16,
-    color: 'white', // Change text color to white for better contrast
+    color: 'white',
   },
 });

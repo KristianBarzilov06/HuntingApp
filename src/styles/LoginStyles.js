@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#9db23a', // Светло зелено
+    backgroundColor: '#9db23a',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -18,7 +18,7 @@ export default StyleSheet.create({
   },
   inputContainer: {
     width: '100%',
-    backgroundColor: '#d4e157', // Светло зелено за фона на input полетата
+    backgroundColor: '#d4e157',
     padding: 20,
     borderRadius: 15,
     shadowColor: '#000',

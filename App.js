@@ -20,8 +20,10 @@ const App = () => {
         <Stack.Screen name="Main" component={MainView} options={{ headerShown: false }}/>
         <Stack.Screen name="Profile" component={Profile} options={{ headerShown: false }}/>
         <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }}/>
+        {/*
         <Stack.Screen name="ImageUpload" component={ImageUploadComponent} />
         <Stack.Screen name="CameraScreen" component={CameraScreen} />
+        */}
       </Stack.Navigator>
     </NavigationContainer>
   );

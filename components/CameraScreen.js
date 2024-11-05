@@ -16,7 +16,6 @@ export default function CameraScreen() {
       console.log('Photo taken:', photo.uri);
 
       try {
-        // Функция за качване
         const downloadURL = await uploadImage(photo.uri);
         console.log('Image uploaded successfully:', downloadURL);
       } catch (error) {
@@ -29,11 +28,10 @@ export default function CameraScreen() {
     const response = await fetch(uri);
     const blob = await response.blob();
 
-    // Създаване на референция в Storage и качване
     const storageRef = ref(storage, `images/${Date.now()}.jpg`);
     await uploadBytes(storageRef, blob);
     const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL; // Връща URL на каченото изображение
+    return downloadURL;
   };
 
   return (

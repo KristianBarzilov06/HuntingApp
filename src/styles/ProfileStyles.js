@@ -8,7 +8,7 @@ export default StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-end', // Променете на flex-start, за да подредите по-отгоре
+    alignItems: 'flex-end',
     backgroundColor: '#334603',
     paddingBottom: 20,
     marginLeft: -20,
@@ -48,9 +48,9 @@ export default StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     alignItems: 'center',
-    position: 'absolute', // Позициониране на абсолютна основа
-    bottom: 40, // Разстояние от долния край
-    left: 20, // Разстояние от левия край
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
     right: 20,
   },
   editButtonText: {

@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import styles from '../src/styles/SlideMenuStyles';
 
-const SlideMenu = ({ role, userEmail }) => { // Приемете userEmail като пропс
+const SlideMenu = ({ role, userEmail }) => {
   const navigation = useNavigation();
 
   const menuOptions = [
@@ -18,7 +18,6 @@ const SlideMenu = ({ role, userEmail }) => { // Приемете userEmail ка�
     { label: 'Обратно към Main', navigateTo: 'Main' }
   ];
 
-  // Филтрираме опциите за менюто спрямо ролята на потребителя
   const getAccessibleMenuOptions = () => {
     if (role === 'Председател') {
       return menuOptions;

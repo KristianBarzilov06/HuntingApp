@@ -25,7 +25,6 @@ const LoginView = ({ navigation }) => {
 
         try {
             await signInWithEmailAndPassword(auth, email, password);
-            // Пренасочваме към MainView
             navigation.navigate('Main', { userEmail: email });
         } catch (error) {
             Alert.alert("Грешка при вход: " + error.message);

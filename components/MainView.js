@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // За иконки
+import { Ionicons } from '@expo/vector-icons';
 import styles from '../src/styles/MainStyles'; 
 
 const MainView = ({ navigation, route }) => {
-  // Вземете userEmail от параметрите
   const { userEmail } = route.params || {}; 
 
-  // Примерен списък с групи
   const groups = [
     { id: 1, name: 'ЛРД-Дюлево', chairman: 'Някой Няков' },
     { id: 2, name: 'ЛРД-Светлина', chairman: 'Някой Няков' },
@@ -21,33 +19,27 @@ const MainView = ({ navigation, route }) => {
     { id: 10, name: 'ЛРД-Крушевец', chairman: 'Някой Няков' },
   ];
 
-  // State за търсене и филтрирани групи
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredGroups, setFilteredGroups] = useState(groups);
 
-  // Функция за търсене, която игнорира "ЛРД" и големината на буквите
   const handleSearch = (text) => {
     setSearchQuery(text);
 
     const filtered = groups.filter(group => {
-      // Преобразуваме името на групата и търсенето до малки букви
-      const groupName = group.name.toLowerCase().replace(/лрд-?/g, ''); // Премахваме "ЛРД" и тирето, ако съществуват
-      const query = text.toLowerCase().replace(/лрд-?/g, '').trim(); // Премахваме "ЛРД" и тирето от търсенето
+      const groupName = group.name.toLowerCase().replace(/лрд-?/g, '');
+      const query = text.toLowerCase().replace(/лрд-?/g, '').trim();
 
-      // Проверяваме дали групата съдържа търсеното име
       return groupName.includes(query);
     });
 
     setFilteredGroups(filtered);
   };
 
-  // Функция за нулиране на търсенето
   const resetSearch = () => {
     setSearchQuery('');
     setFilteredGroups(groups);
   };
 
-  // Функция за присъединяване към група
   const joinGroup = (group) => {
     navigation.navigate('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
   };
@@ -71,7 +63,6 @@ const MainView = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Нов контейнер за списък с групи */}
       <View style={styles.listContainer}>
         {/* Списък с групи */}
         <ScrollView style={styles.groupList}>
@@ -89,7 +80,6 @@ const MainView = ({ navigation, route }) => {
         </ScrollView>
       </View>
 
-      {/* Бутон за нулиране на търсенето - разположен под контейнера, вдясно */}
       {searchQuery.length > 0 && (
         <TouchableOpacity style={styles.resetButton} onPress={resetSearch}>
           <Ionicons name="arrow-back" size={24} color="black" />
