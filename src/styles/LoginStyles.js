@@ -51,16 +51,38 @@ export default StyleSheet.create({
     color: '#ffb400',
     fontSize: 18,
   },
+  linkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#242c0f',
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
+  },
+  checked: {
+    backgroundColor: '#6A7845',
+  },
+  rememberMeText: {
+    color: '#242c0f',
+    fontSize: 16,
+  },
   linkText: {
     color: 'blue',
     fontSize: 16,
-    marginTop: 20,
     textAlign: 'right',
-    paddingLeft: 150,
-  },
-  linkTouchable: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
   },
   image: {
     position: 'absolute',
