@@ -131,13 +131,20 @@ export default StyleSheet.create({
     marginBottom: 15,
   },
   checkboxItem: {
-    flexDirection: 'row', // Използваме редовете за разположение (чекират от ляво на текста)
-    alignItems: 'center', // Центрираме чекбокса и текста по вертикала
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 10,
   },
   checkboxText: {
-    marginLeft: 10, // Поставяме малко пространство между чекбокса и текста
+    marginLeft: 10,
     fontSize: 16,
     color: '#334603',
+  },
+  datePickerButton: {
+    backgroundColor: '#d4e157',
+    padding: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginVertical: 10,
   },
 });
