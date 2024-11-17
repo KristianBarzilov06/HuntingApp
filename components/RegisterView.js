@@ -7,10 +7,16 @@ import styles from '../src/styles/RegisterStyles';
 const RegisterView = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     const handleRegister = async () => {
-        if (email === '' || password === '') {
+        if (email === '' || password === '' || confirmPassword === '') {
             Alert.alert("Моля, попълнете всички полета.");
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            Alert.alert("Паролите не съвпадат. Моля, опитайте отново.");
             return;
         }
 
@@ -42,6 +48,14 @@ const RegisterView = ({ navigation }) => {
                     onChangeText={setPassword}
                     placeholderTextColor="#242c0f"
                 />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Въведете паролата отново"
+                    secureTextEntry
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholderTextColor="#242c0f"
+                />
 
                 <TouchableOpacity style={styles.button} onPress={handleRegister}>
                     <Text style={styles.buttonText}>Регистрация</Text>
@@ -51,7 +65,7 @@ const RegisterView = ({ navigation }) => {
                     <Text style={styles.linkText}>Вече имате акаунт?</Text>
                 </TouchableOpacity>
             </View>
-            <Image source={require('../images/boar1.png')} style={styles.image}resizeMode="contain"/>
+            <Image source={require('../images/boar1.png')} style={styles.image} resizeMode="contain" />
         </View>
     );
 };

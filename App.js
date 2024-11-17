@@ -8,6 +8,7 @@ import Profile from './components/Profile';
 import ChatScreen from './components/ChatScreen';
 import ImageUploadComponent from './components/ImageUploadComponent';
 import CameraScreen from './components/CameraScreen';
+import HunterProfileSetup from './components/HunterProfileSetup';
 
 const Stack = createNativeStackNavigator();
 
@@ -15,15 +16,14 @@ const App = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen name="Login" component={LoginView} options={{ headerShown: false }}/>
-        <Stack.Screen name="Register" component={RegisterView} options={{ headerShown: false }}/>
-        <Stack.Screen name="Main" component={MainView} options={{ headerShown: false }}/>
-        <Stack.Screen name="Profile" component={Profile} options={{ headerShown: false }}/>
-        <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }}/>
-        {/*
-        <Stack.Screen name="ImageUpload" component={ImageUploadComponent} />
-        <Stack.Screen name="CameraScreen" component={CameraScreen} />
-        */}
+        <Stack.Screen name="Login" component={LoginView} options={{ headerShown: false }} />
+        <Stack.Screen name="Register" component={RegisterView} options={{ headerShown: false }} />
+        <Stack.Screen name="HunterProfileSetup" component={HunterProfileSetup} options={{ headerShown: false }} />
+        <Stack.Screen name="Main" component={MainView} options={{ headerShown: false }} />
+        <Stack.Screen name="Profile" component={Profile} options={{ headerShown: false }} />
+        <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="ImageUpload" component={ImageUploadComponent} options={{ headerShown: false }} />
+        <Stack.Screen name="CameraScreen" component={CameraScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
