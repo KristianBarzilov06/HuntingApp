@@ -1,3 +1,4 @@
+/* eslint-disable no-dupe-keys */
 import { StyleSheet } from 'react-native';
 
 export default StyleSheet.create({
@@ -54,6 +55,13 @@ export default StyleSheet.create({
     fontSize: 16,
     padding: 10,
     borderRadius: 5,
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 10,
+    resizeMode: 'cover',
+    marginTop: 5,
   },
   profileIcon: {
     width: 0,

@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,8 +13,10 @@ import {
   Platform,
 } from 'react-native';
 import { PropTypes } from 'prop-types';
+import { ScrollView } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
-import { auth } from '../firebaseConfig';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, firestore } from '../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import styles from '../src/styles/RegisterStyles';
 
@@ -27,7 +30,6 @@ const RegisterView = ({ navigation }) => {
 
   const [containerPosition] = useState(new Animated.Value(0));
 
-  // Handle keyboard animation
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
@@ -62,12 +64,40 @@ const RegisterView = ({ navigation }) => {
 
   const handleRegister = async (data) => {
     try {
-      await createUserWithEmailAndPassword(auth, data.email, data.password);
+      // Създаване на потребител в Firebase Authentication
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const { uid, email } = userCredential.user;
+
+      // Създаване на документ във Firestore
+      await setDoc(doc(firestore, 'users', uid), {
+        email: email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: 'hunter',
+        bio: '',
+        dogBreed: '',
+        equipment: [],
+        gallery: [],
+        huntingLicense: {
+          start: '',
+          end: '',
+        },
+        huntingNotes: {
+          start: '',
+          end: '',
+        },
+        isGroupHunting: false,
+        isSelectiveHunting: false,
+        licenseType: '',
+        profilePicture: '',
+      });
+
       Alert.alert('Успешна регистрация!');
-      reset(); // Нулиране на формата след успешна регистрация
+      reset();
       navigation.navigate('Login');
     } catch (error) {
       Alert.alert('Грешка при регистрация: ' + error.message);
+      console.error(error);
     }
   };
 
@@ -76,11 +106,64 @@ const RegisterView = ({ navigation }) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <ScrollView 
+      contentContainerStyle={styles.scrollContainer} 
+      showsVerticalScrollIndicator={false}
+    >
       <Animated.View style={{ transform: [{ translateY: containerPosition }] }}>
-      {/* eslint-disable-next-line no-undef */}
-      <Image source={require('../images/Дружинар.png')} style={styles.logo} />
-      <Text style={styles.title}>Регистрация</Text>
+        <Image source={require('../images/Дружинар.png')} style={styles.logo} />
+        <Text style={styles.title}>Регистрация</Text>
         <View style={styles.inputContainer}>
+          {/* Име */}
+          <Controller
+            control={control}
+            name="firstName"
+            rules={{
+              required: 'Името е задължително.',
+              minLength: {
+                value: 2,
+                message: 'Името трябва да бъде поне 2 символа.',
+              },
+            }}
+            render={({ field: { onChange, value } }) => (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Име"
+                  value={value}
+                  onChangeText={onChange}
+                  placeholderTextColor="#242c0f"
+                />
+                {errors.firstName && <Text style={styles.errorText}>{errors.firstName.message}</Text>}
+              </>
+            )}
+          />
+
+          {/* Фамилия */}
+          <Controller
+            control={control}
+            name="lastName"
+            rules={{
+              required: 'Фамилията е задължителна.',
+              minLength: {
+                value: 2,
+                message: 'Фамилията трябва да бъде поне 2 символа.',
+              },
+            }}
+            render={({ field: { onChange, value } }) => (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Фамилия"
+                  value={value}
+                  onChangeText={onChange}
+                  placeholderTextColor="#242c0f"
+                />
+                {errors.lastName && <Text style={styles.errorText}>{errors.lastName.message}</Text>}
+              </>
+            )}
+          />
+
           {/* Имейл */}
           <Controller
             control={control}
@@ -138,13 +221,14 @@ const RegisterView = ({ navigation }) => {
             name="confirmPassword"
             rules={{
               required: 'Моля, потвърдете паролата.',
-              validate: (value) => value === control._formValues.password || 'Паролите не съвпадат.',
+              validate: (value) => 
+                value === control._formValues.password || 'Паролите не съвпадат.',
             }}
             render={({ field: { onChange, value } }) => (
               <>
                 <TextInput
                   style={styles.input}
-                  placeholder="Въведете паролата отново"
+                  placeholder="Потвърдете паролата"
                   secureTextEntry
                   value={value}
                   onChangeText={onChange}
@@ -157,18 +241,17 @@ const RegisterView = ({ navigation }) => {
             )}
           />
 
-          {/* Бутон за регистрация */}
-          <TouchableOpacity style={styles.button} onPress={handleSubmit(handleRegister)}>
-            <Text style={styles.buttonText}>Регистрация</Text>
-          </TouchableOpacity>
-
-          <View style={styles.linkContainer}>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.link}>
               <Text style={styles.linkText}>Вече имате акаунт?</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={handleSubmit(handleRegister)}>
+              <Text style={styles.buttonText}>Регистрация</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Animated.View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };

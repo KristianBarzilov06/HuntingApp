@@ -24,7 +24,8 @@ const Profile = ({ route, navigation }) => {
   const userId = auth.currentUser?.uid || '';
 
   const [user, setUser] = useState({
-    name: 'Кристиян Бързилов',
+    firstName: '',
+    lastName: '',
     email: userEmail,
     profilePicture: null,
   });
@@ -59,21 +60,26 @@ const Profile = ({ route, navigation }) => {
           setGallery(profileData.gallery || []);
           setIsGroupHunting(profileData.isGroupHunting || false);
           setIsSelectiveHunting(profileData.isSelectiveHunting || false);
-          setUser((prevUser) => ({
-            ...prevUser,
+  
+          setUser({
+            firstName: profileData.firstName || '',
+            lastName: profileData.lastName || '',
+            email: profileData.email || userEmail,
             profilePicture: profileData.profilePicture || null,
-          }));
+          });
         }
       } catch (error) {
         console.error('Грешка при зареждане на данни:', error.message);
       }
     };
-
+  
     fetchProfileData();
   }, [userId]);
 
   const handleSaveChanges = async () => {
     const profileData = {
+      firstName: user.firstName,
+      lastName: user.lastName,
       bio,
       licenseType,
       huntingLicense,
@@ -224,27 +230,48 @@ const Profile = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollView}>
-        <View style={styles.profileInfo}>
-        <TouchableOpacity onPress={handleProfilePictureChange}>
-            {isEditing ? (
-            <TouchableOpacity onPress={handleProfilePictureChange}>
-              {newProfilePicture ? (
-                <Image source={{ uri: newProfilePicture }} style={styles.profilePicture} />
-              ) : user.profilePicture ? (
-                <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
-              ) : (
-                <Ionicons name="person-circle" size={100} color="gray" />
-              )}
-            </TouchableOpacity>
+      <View style={styles.profileInfo}>
+      <TouchableOpacity onPress={handleProfilePictureChange}>
+        {isEditing ? (
+          newProfilePicture ? (
+            <Image source={{ uri: newProfilePicture }} style={styles.profilePicture} />
           ) : user.profilePicture ? (
             <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
           ) : (
             <Ionicons name="person-circle" size={100} color="gray" />
-          )}
-          </TouchableOpacity>
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
-        </View>
+          )
+        ) : user.profilePicture ? (
+          <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
+        ) : (
+          <Ionicons name="person-circle" size={100} color="gray" />
+        )}
+      </TouchableOpacity>
+
+      {isEditing ? (
+        <>
+          {/* Поле за редактиране на име */}
+          <TextInput
+            style={styles.input}
+            placeholder="Име"
+            value={user.firstName}
+            onChangeText={(text) => setUser({ ...user, firstName: text })}
+          />
+          {/* Поле за редактиране на фамилия */}
+          <TextInput
+            style={styles.input}
+            placeholder="Фамилия"
+            value={user.lastName}
+            onChangeText={(text) => setUser({ ...user, lastName: text })}
+          />
+        </>
+      ) : (
+        // Показване на име и фамилия, ако не сме в режим на редактиране
+        <Text style={styles.userName}>{`${user.firstName} ${user.lastName}`}</Text>
+      )}
+
+      {/* Имейл адрес */}
+      <Text style={styles.userEmail}>{user.email}</Text>
+    </View>
 
         <View style={styles.profileDetailsContainer}>
           <Text style={styles.sectionTitle}>Биография</Text>

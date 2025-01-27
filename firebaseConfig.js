@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey:"AIzaSyDR9KZhydET4e0PJ7vv_0t9r09rONX6wdg",
   authDomain: "huntingappchat-88aa7.firebaseapp.com",
   projectId: "huntingappchat-88aa7",
-  storageBucket: "huntingappchat-88aa7.appspot.com",
+  storageBucket: "huntingappchat-88aa7.firebasestorage.app",
   messagingSenderId: "1076822400965",
   appId: "1:1076822400965:web:324bf8cd4aabbb128f75ac",
   measurementId: "G-HF3N0M89VS"

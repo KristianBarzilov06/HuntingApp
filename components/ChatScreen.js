@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PropTypes } from 'prop-types';
 import styles from '../src/styles/ChatStyles';
@@ -7,36 +7,54 @@ import { firestore } from '../firebaseConfig';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import * as Clipboard from 'expo-clipboard';
+import * as ImagePicker from 'expo-image-picker';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const ChatScreen = ({ route, navigation }) => {
   const { groupId, groupName } = route.params; // Получаване на ID и име на групата от параметрите на навигацията
   const stringGroupId = String(groupId); // Уверяваме се, че ID е стринг за съвместимост
   const [messages, setMessages] = useState([]); // Съхраняване на списъка със съобщения
   const [newMessage, setNewMessage] = useState(''); // Съхраняване на текущо въведеното съобщение
+  const [profilePictures, setProfilePictures] = useState({});
   const [editingMessageId, setEditingMessageId] = useState(null); // ID на съобщението, което се редактира
   const [menuVisible, setMenuVisible] = useState(false); // Състояние за видимост на менюто
   const [menuRotation, setMenuRotation] = useState(0); // Ротация за анимация на менюто
-  const flatListRef = useRef(null); // Референция за FlatList за автоматично скролиране
+  const flatListRef = useRef(null); // Референция за FlatList за автоматично скролване
   const userId = getAuth().currentUser.uid; // Получаване на текущия потребител от Firebase Authentication
 
   // Зареждане на съобщенията в реално време
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(firestore, 'groups', stringGroupId, 'messages'), // Референция към колекцията със съобщения
+    const unsubscribeMessages = onSnapshot(
+      collection(firestore, 'groups', stringGroupId, 'messages'),
       (snapshot) => {
         const loadedMessages = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-        })).sort((a, b) => a.timestamp - b.timestamp); // Сортиране на съобщенията по времева отметка
-        setMessages(loadedMessages); // Актуализация на state със заредените съобщения
+        })).sort((a, b) => a.timestamp - b.timestamp);
+        setMessages(loadedMessages);
       },
-      (error) => {
-        console.error("Error fetching messages:", error.code, error.message);
-      }
+      (error) => console.error("Error fetching messages:", error)
     );
 
-    return () => unsubscribe(); // Премахване на слушателя при напускане на компонента
-  }, [stringGroupId]);
+    return () => unsubscribeMessages(); // премахване на слушателя при напускане на компонента
+  }, [stringGroupId]); 
+
+  useEffect(() => {
+    const unsubscribeUsers = onSnapshot(collection(firestore, 'users'), (snapshot) => {
+      const updatedPictures = { ...profilePictures };
+
+      snapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (userData.profilePicture) {
+          updatedPictures[doc.id] = userData.profilePicture;
+        }
+      });
+
+      setProfilePictures(updatedPictures);
+    });
+
+    return () => unsubscribeUsers(); // Премахване на слушателя при напускане на компонента
+  }, []);
 
   const sendMessage = async () => {
     if (newMessage.trim() === '') return;
@@ -55,6 +73,70 @@ const ChatScreen = ({ route, navigation }) => {
     }
 
     setNewMessage('');
+  };
+
+  const uploadImageFromGallery = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Нужно е разрешение', 'Моля, дайте разрешение за достъп до галерията.');
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!pickerResult.canceled) {
+      const selectedImage = pickerResult.assets && pickerResult.assets[0];
+      if (selectedImage?.uri) {
+        uploadToFirebaseStorage(selectedImage.uri, 'images');
+      }
+    }
+  };
+
+  const takePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Нужно е разрешение', 'Моля, дайте разрешение за използване на камерата.');
+      return;
+    }
+
+    const cameraResult = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!cameraResult.canceled) {
+      const capturedImage = cameraResult.assets && cameraResult.assets[0];
+      if (capturedImage?.uri) {
+        uploadToFirebaseStorage(capturedImage.uri, 'photos');
+      }
+    }
+  };
+
+  const uploadToFirebaseStorage = async (uri, folder) => {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const fileRef = ref(getStorage(), `${folder}/${Date.now()}`);
+      await uploadBytes(fileRef, blob);
+      const downloadUrl = await getDownloadURL(fileRef);
+      console.log('Uploaded file URL:', downloadUrl);
+
+      // Добавяне на съобщение с линка към Storage
+      await addDoc(collection(firestore, 'groups', stringGroupId, 'messages'), {
+        text: '',
+        mediaUrl: downloadUrl,
+        mediaType: folder, // 'images', 'photos', 'audio'
+        timestamp: new Date(),
+        userId: userId,
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      Alert.alert('Грешка', 'Неуспешно качване на файла.');
+    }
   };
 
   const handleLongPress = (messageId) => {
@@ -106,6 +188,8 @@ const ChatScreen = ({ route, navigation }) => {
 
   const renderMessage = ({ item }) => {
     const isMyMessage = item.userId === userId;
+    const profilePicture = profilePictures[item.userId];
+
     return (
       <TouchableOpacity 
         onLongPress={() => handleLongPress(item.id)} 
@@ -113,27 +197,37 @@ const ChatScreen = ({ route, navigation }) => {
       >
         {!isMyMessage && (
           <View style={styles.iconContainer}>
-            <Ionicons 
-              name="person-circle-outline"
-              size={30}
-              color="black"
-              style={styles.profileIcon}
-            />
+            {profilePicture ? (
+              <Image source={{ uri: profilePicture }} style={styles.profileIcon} />
+            ) : (
+              <Ionicons name="person-circle-outline" size={30} color="black" />
+            )}
           </View>
         )}
 
         <View style={[styles.messageItem, isMyMessage ? styles.myMessage : styles.otherMessage]}>
-          <Text style={styles.messageText}>{item.text}</Text>
+          {item.mediaUrl ? (
+            <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
+          ) : (
+            <Text style={styles.messageText}>{item.text}</Text>
+          )}
         </View>
 
         {isMyMessage && (
           <View style={styles.iconContainer}>
-            <Ionicons 
-              name="person-circle-outline"
-              size={30}
-              color="black"
-              style={styles.profileIcon}
-            />
+            {profilePictures[userId] ? (
+              <Image 
+                source={{ uri: profilePictures[userId] }} 
+                style={styles.profileIcon}
+              />
+            ) : (
+              <Ionicons 
+                name="person-circle-outline"
+                size={30}
+                color="black"
+                style={styles.profileIcon}
+              />
+            )}
           </View>
         )}
       </TouchableOpacity>
@@ -146,15 +240,11 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const showGalleryAlert = () => {
-    Alert.alert('Gallery feature coming soon!');
-  };
-
-  const showVoiceAlert = () => {
-    Alert.alert('Voice message feature coming soon!');
+    uploadImageFromGallery();
   };
 
   const showCameraAlert = () => {
-    Alert.alert('Camera functionality coming soon!');
+    takePhoto();
   };
 
   const scrollToBottom = () => {
@@ -185,6 +275,9 @@ const ChatScreen = ({ route, navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity onPress={showGalleryAlert}>
             <Text style={styles.menuItem}>Галерия</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={showCameraAlert}>
+            <Text style={styles.menuItem}>Камера</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => Alert.alert('Notifications feature coming soon!')}>
             <Text style={styles.menuItem}>Новини и известия</Text>
@@ -217,10 +310,6 @@ const ChatScreen = ({ route, navigation }) => {
 
         <TouchableOpacity onPress={showCameraAlert}>
           <Ionicons name="camera" size={30} color="black" style={styles.icon} />
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={showVoiceAlert}>
-          <Ionicons name="mic" size={30} color="black" style={styles.icon} />
         </TouchableOpacity>
 
         <TextInput

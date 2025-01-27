@@ -7,7 +7,6 @@ export default StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
   },
   logo: {
     width: 300,
@@ -15,6 +14,7 @@ export default StyleSheet.create({
     resizeMode: 'contain',
     alignSelf: 'center',
     marginBottom: 10,
+    paddingTop: 20,
   },
   title: {
     fontSize: 50,
@@ -27,6 +27,7 @@ export default StyleSheet.create({
     width: '100%',
     backgroundColor: '#d4e157',
     padding: 20,
+    marginBottom: 20,
     borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -47,30 +48,31 @@ export default StyleSheet.create({
     fontSize: 16,
     alignSelf: 'center',
   },
-  button: {
-    width: '100%',
-    backgroundColor: '#242c0f',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 20,
-    marginLeft:160,
+  buttonContainer: {
+    flexDirection: 'row', // Подреждане на елементите в ред
+    alignItems: 'center', // Подравняване по вертикала
+    justifyContent: 'space-between', // Разстояние между линка и бутона
+    width: '100%', // Ширина на контейнера
+    marginTop: 20, // Разстояние от останалото съдържание
   },
-  buttonText: {
-    color: '#ffb400',
-    fontSize: 18,
-  },
-  linkContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 15,
-    justifyContent: 'center',
-    width: '100%',
-    marginLeft:70,
+  link: {
+    flex: 1,
+    marginRight: 10, // Разстояние между линка и бутона
   },
   linkText: {
     color: 'blue',
     fontSize: 16,
+  },
+  button: {
+    flex: 1,
+    backgroundColor: '#242c0f',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#ffb400',
+    fontSize: 18,
   },
   errorText: {
     color: 'red',
