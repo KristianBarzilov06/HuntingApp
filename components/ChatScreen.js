@@ -4,11 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { PropTypes } from 'prop-types';
 import styles from '../src/styles/ChatStyles';
 import { firestore } from '../firebaseConfig';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Audio } from 'expo-av';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const ChatScreen = ({ route, navigation }) => {
   const { groupId, groupName } = route.params; // Получаване на ID и име на групата от параметрите на навигацията
@@ -19,6 +20,8 @@ const ChatScreen = ({ route, navigation }) => {
   const [editingMessageId, setEditingMessageId] = useState(null); // ID на съобщението, което се редактира
   const [menuVisible, setMenuVisible] = useState(false); // Състояние за видимост на менюто
   const [menuRotation, setMenuRotation] = useState(0); // Ротация за анимация на менюто
+  const [recording, setRecording] = useState(null);
+  const [playingMessageId, setPlayingMessageId] = useState(null);
   const flatListRef = useRef(null); // Референция за FlatList за автоматично скролване
   const userId = getAuth().currentUser.uid; // Получаване на текущия потребител от Firebase Authentication
 
@@ -77,6 +80,7 @@ const ChatScreen = ({ route, navigation }) => {
 
   const uploadImageFromGallery = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    console.log("Permission granted:", permissionResult.granted);
     if (!permissionResult.granted) {
       Alert.alert('Нужно е разрешение', 'Моля, дайте разрешение за достъп до галерията.');
       return;
@@ -88,11 +92,15 @@ const ChatScreen = ({ route, navigation }) => {
       quality: 0.7,
     });
 
+    console.log("Picker result:", pickerResult); 
     if (!pickerResult.canceled) {
       const selectedImage = pickerResult.assets && pickerResult.assets[0];
       if (selectedImage?.uri) {
+        console.log('Selected image URI:', selectedImage.uri);
         uploadToFirebaseStorage(selectedImage.uri, 'images');
       }
+    } else {
+      console.log('Image selection was cancelled.');
     }
   };
 
@@ -116,20 +124,64 @@ const ChatScreen = ({ route, navigation }) => {
     }
   };
 
+  const startRecording = async () => {
+    try {
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) {
+        Alert.alert("Нужно е разрешение", "Моля, разрешете достъп до микрофона.");
+        return;
+      }
+  
+      const { recording } = await Audio.Recording.createAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
+      setRecording(recording);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+    }
+  };
+  
+  const stopRecording = async () => {
+    if (!recording) return;
+    setRecording(null);
+    await recording.stopAndUnloadAsync();
+  
+    const uri = recording.getURI();
+    uploadToFirebaseStorage(uri, "audio"); // Качваме аудиото във Firebase
+  };
+
+  const playAudio = async (audioUrl, messageId) => {
+    try {
+      const { sound } = await Audio.Sound.createAsync({ uri: audioUrl });
+      setPlayingMessageId(messageId);
+      await sound.playAsync();
+      sound.setOnPlaybackStatusUpdate(status => {
+        if (status.didJustFinish) {
+          setPlayingMessageId(null);
+        }
+      });
+    } catch (error) {
+      console.error("Error playing audio:", error);
+    }
+  };
+
   const uploadToFirebaseStorage = async (uri, folder) => {
     try {
+      console.log("Uploading URI:", uri);
       const response = await fetch(uri);
       const blob = await response.blob();
-      const fileRef = ref(getStorage(), `${folder}/${Date.now()}`);
-      await uploadBytes(fileRef, blob);
+      const fileRef = ref(getStorage(), `${folder}/${Date.now()}.mp3`);
+      const uploadRes = await uploadBytes(fileRef, blob);
       const downloadUrl = await getDownloadURL(fileRef);
       console.log('Uploaded file URL:', downloadUrl);
+      console.log(uploadRes.metadata.fullPath);
+      
 
       // Добавяне на съобщение с линка към Storage
       await addDoc(collection(firestore, 'groups', stringGroupId, 'messages'), {
         text: '',
         mediaUrl: downloadUrl,
         mediaType: folder, // 'images', 'photos', 'audio'
+        filePath: uploadRes.metadata.fullPath,  // Пътя към файла, използваме imageId
+        storagePath: uploadRes.metadata.fullPath,
         timestamp: new Date(),
         userId: userId,
       });
@@ -180,9 +232,36 @@ const ChatScreen = ({ route, navigation }) => {
 
   const handleDelete = async (messageId) => {
     try {
-      await deleteDoc(doc(firestore, 'groups', stringGroupId, 'messages', messageId));
+      const messageDocRef = doc(firestore, 'groups', stringGroupId, 'messages', messageId);
+      const messageDoc = await getDoc(messageDocRef);
+  
+      if (!messageDoc.exists()) {
+        console.error("Message not found!");
+        Alert.alert('Грешка', 'Съобщението не съществува.');
+        return;
+      }
+  
+      const messageData = messageDoc.data();
+  
+      // Първо изтриваме съобщението от Firestore
+      await deleteDoc(messageDocRef);
+      console.log("Message deleted from Firestore");
+  
+      // Проверяваме дали съобщението има storagePath и дали е валиден
+      if (messageData.storagePath && typeof messageData.storagePath === 'string') {
+        const storageRef = ref(getStorage(), messageData.storagePath);
+        console.log("Deleting file at:", messageData.storagePath);
+  
+        // Изтриваме файла от Firebase Storage
+        await deleteObject(storageRef);
+        console.log("File deleted successfully from Firebase Storage");
+      } else {
+        console.log("No file attached to this message, skipping file deletion.");
+      }
+  
     } catch (error) {
-      console.error("Error deleting message:", error);
+      console.error("Error deleting message or file:", error.message);
+      Alert.alert('Грешка', `Неуспешно изтриване: ${error.message}`);
     }
   };
 
@@ -206,7 +285,15 @@ const ChatScreen = ({ route, navigation }) => {
         )}
 
         <View style={[styles.messageItem, isMyMessage ? styles.myMessage : styles.otherMessage]}>
-          {item.mediaUrl ? (
+          {item.mediaType === "audio" ? (
+            <TouchableOpacity onPress={() => playAudio(item.mediaUrl, item.id)}>
+              <Ionicons 
+                name={playingMessageId === item.id ? "pause-circle" : "play-circle"} 
+                size={40} 
+                color="black" 
+              />
+            </TouchableOpacity>
+          ) : item.mediaUrl ? (
             <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
           ) : (
             <Text style={styles.messageText}>{item.text}</Text>
@@ -310,6 +397,10 @@ const ChatScreen = ({ route, navigation }) => {
 
         <TouchableOpacity onPress={showCameraAlert}>
           <Ionicons name="camera" size={30} color="black" style={styles.icon} />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={recording ? stopRecording : startRecording}>
+          <Ionicons name={recording ? "stop-circle" : "mic"} size={30} color="black" />
         </TouchableOpacity>
 
         <TextInput

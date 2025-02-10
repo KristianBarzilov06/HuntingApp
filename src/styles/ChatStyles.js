@@ -61,7 +61,6 @@ export default StyleSheet.create({
     height: 200,
     borderRadius: 10,
     resizeMode: 'cover',
-    marginTop: 5,
   },
   profileIcon: {
     width: 0,
@@ -150,5 +149,54 @@ export default StyleSheet.create({
     padding: 15,
     fontSize: 16,
     color: 'white',
+  },
+  voiceMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8E8E8',
+    padding: 10,
+    borderRadius: 15,
+    marginVertical: 5,
+    width: '70%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,  // лека сянка
+  },
+  
+  playButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: '#007AFF',
+    marginRight: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  
+  progressBar: {
+    flex: 1,
+    height: 4,
+    backgroundColor: '#ccc',
+    borderRadius: 2,
+    marginHorizontal: 10,
+  },
+  
+  progressIndicator: {
+    height: '100%',
+    backgroundColor: '#007AFF',
+    width: '50%',
+  },
+  
+  durationText: {
+    fontSize: 14,
+    color: '#555',
+    marginLeft: 10,
   },
 });
