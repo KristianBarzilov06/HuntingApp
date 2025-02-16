@@ -2,7 +2,7 @@ import { initializeApp, setLogLevel } from "firebase/app";
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey:"AIzaSyDR9KZhydET4e0PJ7vv_0t9r09rONX6wdg",
@@ -16,7 +16,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
 });
 setLogLevel('debug');
 const firestore = getFirestore(app);

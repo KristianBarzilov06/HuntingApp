@@ -378,6 +378,9 @@ const ChatScreen = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => navigation.navigate('Main')}>
             <Text style={styles.menuItem}>Обратно към Main</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('AdminPanel')}>
+            <Text style={styles.menuItem}>AdminPanel</Text>
+          </TouchableOpacity>
         </View>
       )}
 

@@ -7,6 +7,7 @@ import MainView from './components/MainView';
 import Profile from './components/Profile';
 import ChatScreen from './components/ChatScreen';
 import LoadingScreen from './components/LoadingScreen';
+import AdminPanel from './components/AdminPanel';
 
 const Stack = createNativeStackNavigator();
 
@@ -28,6 +29,7 @@ const App = () => {
         <Stack.Screen name="Main" component={MainView} options={{ headerShown: false }} />
         <Stack.Screen name="Profile" component={Profile} options={{ headerShown: false }} />
         <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="AdminPanel" component={AdminPanel} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
