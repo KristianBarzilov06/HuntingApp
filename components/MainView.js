@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-native';
-import { collection, doc, setDoc, getDocs, getFirestore } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, getFirestore,getDoc } from 'firebase/firestore';
 import { app } from '../firebaseConfig';
 import { getAuth } from '@firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,21 +10,27 @@ import styles from '../src/styles/MainStyles';
 const MainView = ({ navigation, route }) => {
   const { userEmail } = route.params || {};
   const [searchQuery, setSearchQuery] = useState('');
+  const [groups, setGroups] = useState([]);
   const [filteredGroups, setFilteredGroups] = useState([]);
-  const [groupMemberships, setGroupMemberships] = useState({}); // Това ще държи информация за членството по групи
+  const [groupMemberships, setGroupMemberships] = useState({});
+  
+  const firestore = getFirestore(app);
+  const auth = getAuth(app);
+  
+  useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(firestore, 'groups'));
+        const groupsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setGroups(groupsList);
+        setFilteredGroups(groupsList);
+      } catch (error) {
+        console.error('Error fetching groups:', error);
+      }
+    };
 
-  const groups = [
-    { id: 1, name: 'ЛРД-Дюлево', chairman: 'Някой Няков' },
-    { id: 2, name: 'ЛРД-Светлина', chairman: 'Някой Няков' },
-    { id: 3, name: 'ЛРД-Гранитец', chairman: 'Някой Няков' },
-    { id: 4, name: 'ЛРД-Средец', chairman: 'Някой Няков' },
-    { id: 5, name: 'ЛРД-Дебелт', chairman: 'Някой Няков' },
-    { id: 6, name: 'ЛРД-Буково', chairman: 'Някой Няков' },
-    { id: 7, name: 'ЛРД-Момина Поляна', chairman: 'Някой Няков' },
-    { id: 8, name: 'ЛРД-Факия', chairman: 'Някой Няков' },
-    { id: 9, name: 'ЛРД-Маринка', chairman: 'Някой Няков' },
-    { id: 10, name: 'ЛРД-Крушевец', chairman: 'Някой Няков' },
-  ];
+    fetchGroups();
+  }, []);
 
   const handleSearch = (text) => {
     setSearchQuery(text);
@@ -41,76 +47,64 @@ const MainView = ({ navigation, route }) => {
     setFilteredGroups(groups);
   };
 
-  // Проверка дали потребителят вече е член на групата
   const checkUserGroupMembership = async (groupId) => {
-    const auth = getAuth(app);
-    const firestore = getFirestore(app);
     const userId = auth.currentUser?.uid;
-    if (!userId) {
-      console.error("No authenticated user found");
-      return;
-    }
-
-    const groupRef = doc(firestore, 'groups', String(groupId));
-    const membersRef = collection(groupRef, 'members');
+    if (!userId) return;
+    
+    const membersRef = collection(firestore, `groups/${groupId}/members`);
     const memberQuery = await getDocs(membersRef);
 
     let isMember = false;
     memberQuery.forEach(doc => {
-      if (doc.id === userId) {
-        isMember = true;
-      }
+      if (doc.id === userId) isMember = true;
     });
 
-    // Обновяваме състоянието за конкретната група
     setGroupMemberships(prevState => ({
       ...prevState,
       [groupId]: isMember ? 'Влизане' : 'Присъедини се'
     }));
   };
 
-  const joinOrEnterGroup = async (group) => {
-    const auth = getAuth(app);
-    const firestore = getFirestore(app);
-    const userId = auth.currentUser?.uid;
-    if (!userId) {
-      console.error("No authenticated user found");
-      return;
-    }
-
-    const userEmail = auth.currentUser.email;
-    const groupRef = doc(firestore, 'groups', String(group.id));
-    const membersRef = collection(groupRef, 'members');
-    const memberDocRef = doc(membersRef, userId);
-
-    if (groupMemberships[group.id] === 'Присъедини се') {
-      try {
-        await setDoc(memberDocRef, { email: userEmail, role: 'ловец' }, { merge: true });
-        console.log(`User ${userEmail} added to group ${group.name}`);
-
-        // Пренасочване към чата
-        navigation.navigate('ChatScreen', {
-          groupId: group.id,
-          groupName: group.name,
-          userEmail,
-        });
-      } catch (error) {
-        console.error("Error joining group:", error);
-      }
-    } else if (groupMemberships[group.id] === 'Влизане') {
-      // Пренасочване към чата без да се добавя отново
-      navigation.navigate('ChatScreen', {
-        groupId: group.id,
-        groupName: group.name,
-        userEmail,
-      });
-    }
-  };
-
-  // Това ще се изпълни всеки път, когато се променя състоянието на потребителския акаунт или когато преминем обратно в MainView
   useEffect(() => {
     groups.forEach(group => checkUserGroupMembership(group.id));
-  }, [userEmail]); // След като потребителят влезе, актуализирайте членството
+  }, [groups, userEmail]);
+
+  const joinOrEnterGroup = async (group) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+  
+    const userEmail = auth.currentUser.email;
+    const userRef = doc(firestore, `users/${userId}`);
+    const userSnap = await getDoc(userRef);
+    const userRole = userSnap.exists() ? userSnap.data().role : "hunter"; // Вземаме ролята от Firestore
+  
+    const memberDocRef = doc(firestore, `groups/${group.id}/members/${userId}`);
+  
+    // Проверяваме дали потребителят е вече член на групата
+    const memberSnap = await getDoc(memberDocRef);
+    
+    if (!memberSnap.exists()) {
+      // Ако потребителят не е част от групата, добавяме го
+      try {
+        await setDoc(memberDocRef, { email: userEmail, role: userRole }, { merge: true });
+        setGroupMemberships(prev => ({
+          ...prev,
+          [group.id]: "Влизане"
+        }));
+        navigation.navigate('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
+      } catch (error) {
+        console.error('Error joining group:', error);
+      }
+    } else {
+      // Ако потребителят вече е част от групата, преминаваме директно към чат
+      setGroupMemberships(prev => ({
+        ...prev,
+        [group.id]: "Влизане"
+      }));
+      navigation.navigate('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
+    }
+  };
+  
 
   return (
     <View style={styles.container}>
@@ -130,19 +124,16 @@ const MainView = ({ navigation, route }) => {
           <Ionicons name="search" size={24} color="black" />
         </TouchableOpacity>
       </View>
-
+      
       <View style={styles.listContainer}>
         <ScrollView style={styles.groupList}>
-          {(filteredGroups && filteredGroups.length > 0 ? filteredGroups : groups).map(group => (
+          {filteredGroups.map(group => (
             <View key={group.id} style={styles.groupItem}>
               <View style={styles.groupDetails}>
                 <Text style={styles.groupName}>{group.name}</Text>
-                <Text style={styles.groupChairman}>Председател: {group.chairman}</Text>
+                <Text style={styles.groupChairman}>Председател: {group.chairman || 'Неизвестен'}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.joinButton}
-                onPress={() => joinOrEnterGroup(group)}
-              >
+              <TouchableOpacity style={styles.joinButton} onPress={() => joinOrEnterGroup(group)}>
                 <Text style={styles.joinButtonText}>{groupMemberships[group.id] || 'Присъедини се'}</Text>
               </TouchableOpacity>
             </View>

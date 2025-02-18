@@ -44,9 +44,11 @@ export default StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#6F8F20', // Тъмнозелено за регионите
-    padding: 12,
+    padding: 15, // Увеличаваме padding за по-добро докосване
     borderRadius: 10,
     marginBottom: 5,
+    borderWidth: 1, // Леко очертаване
+    borderColor: '#5a7b10',
   },
   regionTitle: {
     fontSize: 18,
@@ -55,15 +57,18 @@ export default StyleSheet.create({
   },
   groupsContainer: {
     paddingLeft: 15,
+    paddingTop: 5, // Леко разстояние преди групите
   },
   groupLabel: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#A2C42C', // По-светъл нюанс за групите
-    padding: 10,
+    padding: 12, // Увеличен padding за по-добра интеракция
     borderRadius: 10,
     marginBottom: 5,
+    borderWidth: 1,
+    borderColor: '#8BA726',
   },
   groupName: {
     fontSize: 16,
@@ -72,9 +77,11 @@ export default StyleSheet.create({
   },
   membersContainer: {
     backgroundColor: '#D9E88A', // Светло зелено за потребителския списък
-    padding: 10,
+    padding: 12,
     borderRadius: 10,
     marginTop: 5,
+    borderWidth: 1,
+    borderColor: '#a2c42c',
   },
   groupTitle: {
     fontSize: 16,
@@ -103,6 +110,12 @@ export default StyleSheet.create({
     color: 'red',
     textAlign: 'center',
   },
+  noGroupsText: {
+    fontSize: 14,
+    color: 'gray',
+    textAlign: 'center',
+    padding: 10,
+  },
   resetButton: {
     position: 'absolute',
     right: 10,
@@ -112,4 +125,169 @@ export default StyleSheet.create({
     padding: 8,
     elevation: 2,
   },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#558b2f', // По-наситен зелен за по-голям контраст
+    padding: 12,
+    borderRadius: 10,
+    justifyContent: 'center',
+    marginVertical: 10,
+    shadowColor: '#000', // Добавяме лека сянка за изпъкване
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  addButtonText: {
+    fontSize: 18,
+    color: 'white',
+    marginLeft: 5,
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    width: '80%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  modalLabel: {
+    fontSize: 16,
+    alignSelf: 'flex-start',
+    marginBottom: 5,
+    fontWeight: 'bold',
+    color: '#5a7b10',
+  },
+  input: {
+    width: '100%',
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 5,
+    borderColor: '#ccc',
+    marginBottom: 10,
+    backgroundColor: '#f9f9f9',
+  },
+  regionList: {
+    maxHeight: 200,
+    width: '100%',
+  },
+  regionItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    backgroundColor: '#f1f8e9',
+    borderRadius: 5,
+    marginBottom: 3,
+  },
+  regionText: {
+    fontSize: 16,
+    color: '#2e7d32',
+    fontWeight: '500',
+  },
+  selectedRegion: {
+    fontWeight: 'bold',
+    color: '#ffffff',  // Бял текст за по-добър контраст
+    backgroundColor: '#1b5e20',  // Тъмнозелено за добър контраст
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 2,  // Леко очертаване
+    borderColor: '#145214',
+  },
+  
+  confirmButton: {
+    backgroundColor: '#2e7d32',
+    padding: 10,
+    borderRadius: 5,
+    width: '100%',
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  confirmButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    backgroundColor: 'red',
+    padding: 10,
+    borderRadius: 5,
+    width: '100%',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  deleteButton: {
+    backgroundColor: 'red',
+    padding: 8,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  groupContainer: {
+    marginBottom: 10,
+    backgroundColor: "#f8f8f8",
+    padding: 10,
+    borderRadius: 8,
+  },
+  
+  groupRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  
+  groupIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  
+  menuContainer: {
+    position: "absolute",
+    top: 0,  // Задаваме 0, за да бъде точно в горната част на групата
+    right: 10,  // Позициониране отдясно
+    backgroundColor: "white",
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 100, // Увеличаваме zIndex, за да изкараме менюто над другите елементи
+    padding: 5,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+},
+menuText: {
+    marginLeft: 5,
+    fontSize: 16,
+    color: "#333",
+},
 });
