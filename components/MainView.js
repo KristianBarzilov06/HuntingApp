@@ -19,26 +19,55 @@ const MainView = ({ navigation, route }) => {
   
   useEffect(() => {
     const fetchGroups = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(firestore, 'groups'));
-        const groupsList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setGroups(groupsList);
-        setFilteredGroups(groupsList);
-      } catch (error) {
-        console.error('Error fetching groups:', error);
+      const db = getFirestore();
+      const groupsCollection = collection(db, "groups");
+      const groupsSnapshot = await getDocs(groupsCollection);
+  
+      let loadedGroups = [];
+  
+      for (const groupDoc of groupsSnapshot.docs) {
+        let groupData = groupDoc.data();
+        let chairmanName = "Неизвестен";
+  
+        // Взимаме само председателя
+        const membersCollection = collection(db, `groups/${groupDoc.id}/members`);
+        const membersSnapshot = await getDocs(membersCollection);
+  
+        for (const memberDoc of membersSnapshot.docs) {
+          const memberData = memberDoc.data();
+          if (memberData.role === "chairman") {
+            chairmanName = `${memberData.firstName} ${memberData.lastName}`;
+            break; // ✅ Излизаме, веднага щом намерим председателя
+          }
+        }
+  
+        loadedGroups.push({
+          id: groupDoc.id,
+          ...groupData,
+          chairman: chairmanName, // ✅ Винаги ще има само един председател
+        });
       }
+  
+      setGroups(loadedGroups);
+      setFilteredGroups(loadedGroups);
     };
-
+  
     fetchGroups();
   }, []);
 
   const handleSearch = (text) => {
     setSearchQuery(text);
+    if (text.trim() === '') {
+      setFilteredGroups(groups); // ✅ Връщаме всички групи при празно търсене
+      return;
+    }
+  
     const filtered = groups.filter(group => {
       const groupName = group.name.toLowerCase().replace(/лрд-?/g, '');
       const query = text.toLowerCase().replace(/лрд-?/g, '').trim();
       return groupName.includes(query);
     });
+  
     setFilteredGroups(filtered);
   };
 

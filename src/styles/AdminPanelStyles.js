@@ -144,24 +144,6 @@ export default StyleSheet.create({
     marginLeft: 5,
     fontWeight: 'bold',
   },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    width: '80%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -211,40 +193,6 @@ export default StyleSheet.create({
     borderWidth: 2,  // Леко очертаване
     borderColor: '#145214',
   },
-  
-  confirmButton: {
-    backgroundColor: '#2e7d32',
-    padding: 10,
-    borderRadius: 5,
-    width: '100%',
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-  confirmButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    backgroundColor: 'red',
-    padding: 10,
-    borderRadius: 5,
-    width: '100%',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    backgroundColor: 'red',
-    padding: 8,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 10,
-  },
   groupContainer: {
     marginBottom: 10,
     backgroundColor: "#f8f8f8",
@@ -289,5 +237,123 @@ menuText: {
     marginLeft: 5,
     fontSize: 16,
     color: "#333",
+},
+modalContainer: {
+  flex: 1,
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+modalContent: {
+  backgroundColor: '#fff',
+  padding: 20,
+  borderRadius: 10,
+  width: '90%',
+  maxHeight: '80%', // Увеличен размер
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.3,
+  shadowRadius: 5,
+  elevation: 5,
+},
+
+picker: {
+  width: '100%',
+  backgroundColor: '#f1f1f1',
+  borderRadius: 8,
+  marginVertical: 5,
+},
+
+checkboxContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginVertical: 10,
+},
+
+modalButtonsContainer: {
+  width: '100%',
+  marginTop: 10,
+},
+
+confirmButton: {
+  backgroundColor: '#2e7d32',
+  padding: 12,
+  borderRadius: 8,
+  width: '100%',
+  alignItems: 'center',
+  marginBottom: 5,
+},
+
+confirmButtonText: {
+  color: 'white',
+  fontSize: 16,
+  fontWeight: 'bold',
+},
+
+closeButton: {
+  backgroundColor: 'gray',
+  padding: 12,
+  borderRadius: 8,
+  width: '100%',
+  alignItems: 'center',
+  marginBottom: 5,
+},
+
+closeButtonText: {
+  color: 'white',
+  fontSize: 16,
+  fontWeight: 'bold',
+},
+
+deleteButtonText: {
+  color: 'white',
+  fontSize: 16,
+  fontWeight: 'bold',
+},
+datePickerButton: {
+  backgroundColor: "#4CAF50",
+  paddingVertical: 10,
+  paddingHorizontal: 15,
+  borderRadius: 8,
+  marginTop: 10,
+  alignItems: "center",
+  width: "50%",
+  alignSelf: "center"
+},
+
+datePickerButtonText: {
+  color: "white",
+  fontSize: 16,
+  fontWeight: "bold",
+},
+
+modalScroll: {
+  maxHeight: "80%",
+},
+
+profilePictureContainer: {
+  alignSelf: "center",
+  marginVertical: 10,
+},
+
+profilePicture: {
+  width: 120,
+  height: 120,
+  borderRadius: 60,
+  borderWidth: 2,
+  borderColor: "#4CAF50",
+},
+
+deleteButton: {
+  backgroundColor: "#d32f2f",
+  paddingVertical: 10,
+  paddingHorizontal: 15,
+  borderRadius: 8,
+  alignItems: "center",
+  width: "80%",
+  alignSelf: "center",
+  marginTop: 10,
 },
 });

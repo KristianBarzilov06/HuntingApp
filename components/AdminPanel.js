@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Modal, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Modal, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
-import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc } from "firebase/firestore";
+import * as ImagePicker from 'expo-image-picker';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc, updateDoc} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { Picker } from '@react-native-picker/picker';
+import { Checkbox } from 'react-native-paper';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import styles from '../src/styles/AdminPanelStyles';
 
 const BULGARIAN_REGIONS = [
@@ -21,58 +26,84 @@ const AdminPanel = ({ navigation, route }) => {
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupMembers, setGroupMembers] = useState([]);
-  const [isModalVisible, setModalVisible] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedNewRegion, setSelectedNewRegion] = useState(null);
   const [selectedGroupForMenu, setSelectedGroupForMenu] = useState(null);
   const [userRole, setUserRole] = useState('');
-  
+  const [filteredRegions, setFilteredRegions] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null); // Държавна променлива за избрания потребител
+  const [isModalVisible, setIsModalVisible] = useState(false); // Държавна променлива за показване на модала
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editedUser, setEditedUser] = useState({});
+  const [showLicenseDatePicker, setShowLicenseDatePicker] = useState(false);
+  const [showNotesDatePicker, setShowNotesDatePicker] = useState(false);
+
 
   // Зарежда всички региони и групи от Firebase
   const fetchRegionsAndGroups = async () => {
     const db = getFirestore();
     const groupsCollection = collection(db, "groups");
     const querySnapshot = await getDocs(groupsCollection);
-  
     const data = {};
-    
-    querySnapshot.forEach((doc) => {
-      const groupData = doc.data();
-      if (!groupData.region) return; // Предпазваме се от грешни данни
+  
+    for (const groupDoc of querySnapshot.docs) {
+      const groupData = groupDoc.data();
+      if (!groupData.region) continue;
+  
+      // Взимаме членовете на групата
+      const membersCollection = collection(db, "groups", groupDoc.id, "members");
+      const membersSnapshot = await getDocs(membersCollection);
+  
+      let chairmanName = "Неизвестен";
+      for (const memberDoc of membersSnapshot.docs) {
+        const memberData = memberDoc.data();
+        if (memberData.role === "chairman") {
+          chairmanName = `${memberData.firstName} ${memberData.lastName}`;
+          break;
+        }
+      }
+  
       if (!data[groupData.region]) {
         data[groupData.region] = [];
       }
-      data[groupData.region].push({ id: doc.id, ...groupData });
-    });
   
-    if (!data || Object.keys(data).length === 0) {
-      console.warn("Групите не са заредени правилно!");
-      return;
+      data[groupData.region].push({
+        id: groupDoc.id,
+        ...groupData,
+        chairman: chairmanName, // ✅ Добавяме председателя в групата
+      });
     }
   
     setGroups(data);
   };
 
-  // Зарежда потребителите в дадена група
   const fetchGroupMembers = async (groupId) => {
+    if (!groupId) {
+      console.error("❌ Грешка: Няма избрана група!");
+      return;
+    }
+  
+    console.log(`🔍 Зареждам потребителите от група ${groupId}`);
+  
     const db = getFirestore();
     const groupRef = collection(db, "groups", groupId, "members");
-    const querySnapshot = await getDocs(groupRef);
   
-    const members = [];
-    querySnapshot.forEach((doc) => {
-      const memberData = doc.data();
-      members.push({ id: doc.id, email: memberData.email, role: memberData.role });
-    });
+    try {
+      const querySnapshot = await getDocs(groupRef);
+      const members = [];
   
-    // Определяме приоритетите на ранговете
-    const rolePriority = { admin: 1, chairman: 2, hunter: 3, guest: 4 };
+      querySnapshot.forEach((doc) => {
+        members.push({ id: doc.id, ...doc.data() });
+      });
   
-    // Сортиране по ранг
-    members.sort((a, b) => (rolePriority[a.role] || 99) - (rolePriority[b.role] || 99));
-  
-    setGroupMembers(members);
-  };
+      setGroupMembers(members);
+      setSelectedGroup(groupId);
+      console.log(`✅ Успешно заредени ${members.length} членове за група ${groupId}`);
+    } catch (error) {
+      console.error("❌ Грешка при зареждане на членовете:", error);
+    }
+  };  
+
   const fetchUserRole = async () => {
     const db = getFirestore();
     const auth = getAuth();
@@ -125,7 +156,7 @@ const addNewGroup = async () => {
     Alert.alert('Успех', `Групата ${formattedGroupName} беше добавена успешно в ${selectedNewRegion}!`);
     
     fetchRegionsAndGroups(); // Обновяваме списъка с групи
-    setModalVisible(false);
+    setIsModalVisible(false);
     setNewGroupName('');
     setSelectedNewRegion(null);
   } catch (error) {
@@ -152,18 +183,20 @@ const deleteGroup = async (groupId) => {
             const deleteSubcollection = async (subcollection) => {
               const subColRef = collection(db, `groups/${groupId}/${subcollection}`);
               const subDocs = await getDocs(subColRef);
-              subDocs.forEach(async (doc) => {
-                await deleteDoc(doc.ref);
-              });
+
+              if (!subDocs.empty) {  // ✅ Проверка дали има документи преди изтриване
+                subDocs.forEach(async (doc) => {
+                  await deleteDoc(doc.ref);
+                });
+              }
             };
 
             await deleteSubcollection("members");
             await deleteSubcollection("messages");
 
             await deleteDoc(groupRef);
-
             Alert.alert("Успех!", "Групата беше изтрита успешно.");
-
+            setSelectedGroupForMenu(null);
             fetchRegionsAndGroups();
           } catch (error) {
             console.error("❌ Грешка при изтриване на група:", error);
@@ -178,17 +211,28 @@ const deleteGroup = async (groupId) => {
   // Търсене на регион
   const handleSearch = (text) => {
     setSearchQuery(text);
-  
+
     if (!groups || Object.keys(groups).length === 0) {
-      return;
+        return;
     }
-  
-    const BULGARIAN_REGIONS = BULGARIAN_REGIONS.filter(region =>
-      typeof region === "string" && region.toLowerCase().includes(text.toLowerCase())
+
+    // Проверяваме дали BULGARIAN_REGIONS е дефиниран и е масив
+    if (!Array.isArray(BULGARIAN_REGIONS)) {
+        console.error("BULGARIAN_REGIONS is not an array or is undefined");
+        return;
+    }
+
+    // Филтрираме регионите според въведения текст
+    const newFilteredRegions = BULGARIAN_REGIONS.filter(region =>
+        typeof region === "string" && region.toLowerCase().includes(text.toLowerCase())
     );
-  
+
+    setFilteredRegions(newFilteredRegions); // Запазваме филтрираните региони в state
+
     setSelectedRegion(null); // Нулираме селекцията, ако търсенето се промени
-  };
+};
+
+
 
   const resetSearch = () => {
     setSearchQuery('');
@@ -214,10 +258,11 @@ const deleteGroup = async (groupId) => {
       setSelectedGroup(null);
       setGroupMembers([]);
     } else {
+      console.log(`📂 Отваряне на група: ${group.name} (${group.id})`);
       setSelectedGroup(group.id);
       await fetchGroupMembers(group.id);
     }
-  };
+  };  
 
   const confirmDeleteGroup = (groupId, region) => {
     Alert.alert(
@@ -228,6 +273,225 @@ const deleteGroup = async (groupId) => {
         { text: "Изтрий", onPress: () => deleteGroup(groupId, region), style: "destructive" }
       ]
     );
+  };
+
+  const fetchUserProfile = async (userId, groupId) => {
+    if (!userId || !groupId) {
+      console.error("❌ Грешка: Липсва група или потребител!");
+      Alert.alert("Грешка", "Не може да се зареди потребител без група!");
+      return;
+    }
+  
+    console.log(`🔍 Зареждам профила на потребител ${userId} от група ${groupId}`);
+  
+    const db = getFirestore();
+    const userRef = doc(db, "groups", groupId, "members", userId);
+  
+    try {
+      const userSnap = await getDoc(userRef);
+  
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        setEditedUser({
+          id: userId,
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          email: userData.email || '',
+          bio: userData.bio || '',
+          role: userData.role || 'hunter',
+          profilePicture: userData.profilePicture || null,
+        });
+  
+        setSelectedGroup(groupId);
+        console.log(`✅ Успешно зареден потребител: ${userData.firstName} ${userData.lastName}`);
+      } else {
+        console.error("❌ Грешка: Потребителят не беше намерен в групата.");
+        Alert.alert("Грешка", "Потребителят не беше намерен.");
+      }
+    } catch (error) {
+      console.error("❌ Грешка при зареждане на потребителя:", error);
+    }
+  };
+
+  const handleUserOptions = async (user) => {
+    if (!user || !selectedGroup) {
+      console.error("❌ Грешка: Липсва потребител или група!");
+      Alert.alert("Грешка", "Няма избран потребител или група!");
+      return;
+    }
+  
+    console.log(`👤 Зареждам профила на ${user.email} от група ${selectedGroup}`);
+  
+    setSelectedUser(user);
+    await fetchUserProfile(user.id, selectedGroup);
+    setIsEditModalVisible(true);
+  };
+
+const handleProfilePictureChange = async () => {
+  const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permissionResult.granted) {
+    Alert.alert('Нужно е разрешение', 'Моля, дайте разрешение за достъп до галерията.');
+    return;
+  }
+
+  try {
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!pickerResult.canceled) {
+      const selectedImage = pickerResult.assets[0].uri;
+
+      // ✅ Качваме снимката в Firebase Storage
+      const storage = getStorage();
+      const fileRef = ref(storage, `profilePictures/${selectedUser.id}`);
+      const response = await fetch(selectedImage);
+      const blob = await response.blob();
+      await uploadBytes(fileRef, blob);
+      const downloadUrl = await getDownloadURL(fileRef);
+
+      // ✅ Обновяване на профилната снимка в Firestore
+      const db = getFirestore();
+      const userRef = doc(db, "users", selectedUser.id);
+      await updateDoc(userRef, { profilePicture: downloadUrl });
+
+      // ✅ Обновяване на UI
+      setEditedUser({ ...editedUser, profilePicture: downloadUrl });
+      Alert.alert("Успешно!", "Профилната снимка беше сменена.");
+    }
+  } catch (error) {
+    console.error("Грешка при заявката:", error);
+  }
+};
+
+const handleLicenseDateChange = (event, selectedDate) => {
+  if (selectedDate) {
+    setEditedUser(prevState => ({
+      ...prevState,
+      huntingLicense: { 
+        ...prevState.huntingLicense,
+        start: selectedDate.toISOString().split('T')[0]
+      }
+    }));
+  }
+  setShowLicenseDatePicker(false); // ✅ Скрии DatePicker-а след избора
+};
+
+const handleNotesDateChange = (event, selectedDate) => {
+  if (selectedDate) {
+    setEditedUser(prevState => ({
+      ...prevState,
+      huntingNotes: { 
+        ...prevState.huntingNotes,
+        start: selectedDate.toISOString().split('T')[0]
+      }
+    }));
+  }
+  setShowNotesDatePicker(false); // ✅ Скрии DatePicker-а след избора
+};
+
+const handleEditUser = async () => {
+  if (!selectedUser || !selectedGroup) {
+    Alert.alert("Грешка", "Няма избран потребител или група!");
+    return;
+  }
+
+  if (!editedUser.id) {
+    Alert.alert("Грешка", "Потребителят няма ID!");
+    return;
+  }
+
+  const db = getFirestore();
+  const userRef = doc(db, "users", editedUser.id);
+  const membersCollection = collection(db, `groups/${selectedGroup}/members`);
+
+  try {
+    // ✅ Ако потребителят става председател, махаме текущия председател
+    if (editedUser.role === "chairman") {
+      console.log("🔍 Проверяваме за текущ председател...");
+
+      const membersSnapshot = await getDocs(membersCollection);
+      for (const memberDoc of membersSnapshot.docs) {
+        const memberData = memberDoc.data();
+        if (memberData.role === "chairman" && memberDoc.id !== editedUser.id) {
+          console.log(`❌ Премахване на стар председател: ${memberData.firstName} ${memberData.lastName}`);
+          await updateDoc(doc(db, `groups/${selectedGroup}/members/${memberDoc.id}`), { role: "hunter" });
+        }
+      }
+    }
+
+    // ✅ Обновяване на потребителя в `users` (основната колекция)
+    await updateDoc(userRef, editedUser);
+
+    // ✅ Обновяване на потребителя в `members` на групата
+    const userGroupRef = doc(db, `groups/${selectedGroup}/members/${editedUser.id}`);
+    await updateDoc(userGroupRef, { role: editedUser.role });
+
+    // ✅ Ако е председател, обновяваме и информацията на групата
+    if (editedUser.role === "chairman") {
+      await updateChairmanInGroup(editedUser);
+    }
+
+    Alert.alert("Успешно!", "Данните на потребителя бяха актуализирани.");
+    setIsEditModalVisible(false);
+
+    // ✅ Обновяваме списъка с членове и групи
+    fetchGroupMembers(selectedGroup);
+    fetchRegionsAndGroups();
+  } catch (error) {
+    console.error("❌ Грешка при обновяване на потребителя:", error);
+    Alert.alert("Грешка", "Неуспешно обновяване на потребителя.");
+  }
+};
+
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    Alert.alert(
+      "Изтриване на потребител",
+      "Сигурни ли сте, че искате да изтриете този потребител?",
+      [
+        { text: "Отказ", style: "cancel" },
+        { text: "Изтрий", style: "destructive", onPress: async () => {
+          const db = getFirestore();
+          await deleteDoc(doc(db, "users", selectedUser.id));
+          Alert.alert("Изтрито!", "Потребителят беше успешно изтрит.");
+          setIsEditModalVisible(false);
+          fetchGroupMembers(selectedGroup);
+        }}
+      ]
+    );
+  };
+  const updateChairmanInGroup = async (user) => {
+    if (!selectedGroup || !user.id) {
+      console.error("❌ Грешка: Няма избрана група или потребителят няма ID!");
+      return;
+    }
+  
+    const db = getFirestore();
+    const groupRef = doc(db, "groups", selectedGroup);
+    const membersRef = doc(db, `groups/${selectedGroup}/members/${user.id}`);
+  
+    try {
+      // ✅ Запазваме новия председател в `members`
+      await setDoc(membersRef, {
+        role: "chairman",
+        firstName: user.firstName,
+        lastName: user.lastName,
+      }, { merge: true });
+  
+      // ✅ Запазваме председателя и в основната информация за групата
+      await updateDoc(groupRef, {
+        chairman: `${user.firstName} ${user.lastName}`
+      });
+  
+      console.log(`🎉 Председателят на групата ${selectedGroup} беше обновен.`);
+    } catch (error) {
+      console.error("❌ Грешка при обновяване на председателя:", error);
+    }
   };
 
   // Зарежда регионите и групите при стартиране
@@ -257,7 +521,7 @@ const deleteGroup = async (groupId) => {
 
       {/* Бутон за добавяне на нова група */}
       {userRole === "admin" && (
-        <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity style={styles.addButton} onPress={() => setIsModalVisible(true)}>
           <Ionicons name="add-circle" size={40} color="white" />
           <Text style={styles.addButtonText}>Добави група</Text>
         </TouchableOpacity>
@@ -292,15 +556,164 @@ const deleteGroup = async (groupId) => {
               <Text style={styles.confirmButtonText}>Създай</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setIsModalVisible(false)}>
               <Text style={styles.closeButtonText}>Затвори</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
+      <Modal visible={isEditModalVisible} animationType="slide" transparent={true}>
+  <View style={styles.modalContainer}>
+    <View style={styles.modalContent}>
+      <ScrollView style={styles.modalScroll}>
+        <Text style={styles.modalTitle}>Редактиране на потребител</Text>
+
+        {/* Профилна снимка */}
+        <TouchableOpacity onPress={handleProfilePictureChange} style={styles.profilePictureContainer}>
+          {editedUser.profilePicture ? (
+            <Image source={{ uri: editedUser.profilePicture }} style={styles.profilePicture} />
+          ) : (
+            <Ionicons name="person-circle" size={100} color="gray" />
+          )}
+        </TouchableOpacity>
+
+        <TextInput style={styles.input} placeholder="Име" value={editedUser.firstName} 
+          onChangeText={(text) => setEditedUser({...editedUser, firstName: text})} 
+        />
+        
+        <TextInput style={styles.input} placeholder="Фамилия" value={editedUser.lastName} 
+          onChangeText={(text) => setEditedUser({...editedUser, lastName: text})} 
+        />
+        
+        <TextInput style={styles.input} placeholder="Имейл" value={editedUser.email} 
+          onChangeText={(text) => setEditedUser({...editedUser, email: text})} 
+        />
+        
+        <TextInput style={styles.input} placeholder="Биография" value={editedUser.bio} 
+          onChangeText={(text) => setEditedUser({...editedUser, bio: text})} 
+          multiline
+        />
+
+        <Text style={styles.modalLabel}>Роля:</Text>
+        <Picker 
+          selectedValue={editedUser.role} 
+          onValueChange={(value) => {
+            setEditedUser({ ...editedUser, role: value });
+
+            // ✅ Ако ролята е "chairman", обнови групата с новия председател
+            if (value === "chairman") {
+              updateChairmanInGroup(editedUser);
+            }
+          }} 
+          style={styles.picker}
+        >
+          <Picker.Item label="Ловец" value="hunter" />
+          <Picker.Item label="Админ" value="admin" />
+          <Picker.Item label="Председател" value="chairman" />
+        </Picker>
+
+        <Text style={styles.modalLabel}>Ловен лиценз:</Text>
+        <Text>Начало: {editedUser.huntingLicense?.start || 'Няма избран срок'}</Text>
+        <Text>Край: {editedUser.huntingLicense?.end || 'Няма избран срок'}</Text>
+        <TouchableOpacity onPress={() => setShowLicenseDatePicker(true)} style={styles.datePickerButton}>
+          <Text>Промени</Text>
+        </TouchableOpacity>
+        {showLicenseDatePicker && (
+          <DateTimePicker
+            value={editedUser.huntingLicense?.start ? new Date(editedUser.huntingLicense.start) : new Date()}
+            mode="date"
+            display="default"
+            onChange={handleLicenseDateChange}
+          />
+        )}
+
+        {/* Ловна бележка */}
+        <Text style={styles.modalLabel}>Ловна бележка:</Text>
+        <Text>Начало: {editedUser.huntingNotes?.start || 'Няма избран срок'}</Text>
+        <Text>Край: {editedUser.huntingNotes?.end || 'Няма избран срок'}</Text>
+        <TouchableOpacity onPress={() => setShowNotesDatePicker(true)} style={styles.datePickerButton}>
+          <Text>Промени</Text>
+        </TouchableOpacity>
+        {showNotesDatePicker && (
+          <DateTimePicker
+            value={editedUser.huntingNotes?.start ? new Date(editedUser.huntingNotes.start) : new Date()}
+            mode="date"
+            display="default"
+            onChange={handleNotesDateChange}
+          />
+        )}
+
+        <Text style={styles.modalLabel}>Куче:</Text>
+        <Picker selectedValue={editedUser.dogBreed} onValueChange={(value) => setEditedUser({...editedUser, dogBreed: value})} 
+          style={styles.picker}
+        >
+          <Picker.Item label="Дратхаар" value="Дратхаар" />
+          <Picker.Item label="Гонче" value="Гонче" />
+          <Picker.Item label="Кокершпаньол" value="Кокершпаньол" />
+        </Picker>
+
+        <Text style={styles.modalLabel}>Оборудване:</Text>
+        {editedUser.equipment?.map((eq, index) => (
+          <View key={index}>
+            <TextInput style={styles.input} placeholder="Име" value={eq.name} 
+              onChangeText={(text) => {
+                const newEquipment = [...editedUser.equipment];
+                newEquipment[index].name = text;
+                setEditedUser({...editedUser, equipment: newEquipment});
+              }} 
+            />
+            <TextInput style={styles.input} placeholder="Модел" value={eq.model} 
+              onChangeText={(text) => {
+                const newEquipment = [...editedUser.equipment];
+                newEquipment[index].model = text;
+                setEditedUser({...editedUser, equipment: newEquipment});
+              }} 
+            />
+            <TextInput style={styles.input} placeholder="Калибър" value={eq.caliber} 
+              onChangeText={(text) => {
+                const newEquipment = [...editedUser.equipment];
+                newEquipment[index].caliber = text;
+                setEditedUser({...editedUser, equipment: newEquipment});
+              }} 
+            />
+          </View>
+        ))}
+
+        <View style={styles.checkboxContainer}>
+          <Checkbox status={editedUser.isGroupHunting ? 'checked' : 'unchecked'} 
+            onPress={() => setEditedUser({...editedUser, isGroupHunting: !editedUser.isGroupHunting})} 
+          />
+          <Text>Групов лов</Text>
+        </View>
+
+        <View style={styles.checkboxContainer}>
+          <Checkbox status={editedUser.isSelectiveHunting ? 'checked' : 'unchecked'} 
+            onPress={() => setEditedUser({...editedUser, isSelectiveHunting: !editedUser.isSelectiveHunting})} 
+          />
+          <Text>Подборен лов</Text>
+        </View>
+
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteUser}>
+          <Text style={styles.deleteButtonText}>Изтрий</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      <View style={styles.modalButtonsContainer}>
+        <TouchableOpacity style={styles.confirmButton} onPress={handleEditUser}>
+          <Text style={styles.confirmButtonText}>Запази</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.closeButton} onPress={() => setIsEditModalVisible(false)}>
+          <Text style={styles.closeButtonText}>Отказ</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </View>
+</Modal>
+
       <ScrollView style={styles.listContainer}>
-  {BULGARIAN_REGIONS.map(region => (
+  {(searchQuery.length > 0 ? filteredRegions : BULGARIAN_REGIONS).map(region => (
     <View key={region}>
       {/* Натискащ се елемент за областта */}
       <TouchableOpacity style={styles.regionLabel} onPress={() => toggleRegion(region)}>
@@ -356,16 +769,12 @@ const deleteGroup = async (groupId) => {
                 {selectedGroup === group.id && (
                   <View style={styles.membersContainer}>
                     <Text style={styles.groupTitle}>Потребители:</Text>
-                    {groupMembers.length > 0 ? (
-                      groupMembers.map((member, index) => (
-                        <View key={index} style={styles.memberItem}>
-                          <Text style={styles.memberEmail}>{member.email}</Text>
-                          <Text style={styles.memberRole}>{member.role}</Text>
-                        </View>
-                      ))
-                    ) : (
-                      <Text style={styles.noMembersText}>Няма потребители</Text>
-                    )}
+                    {selectedGroup === group.id && groupMembers.map((member, index) => (
+                      <TouchableOpacity key={index} style={styles.memberItem} onPress={() => handleUserOptions(member)}>
+                        <Text style={styles.memberEmail}>{member.email}</Text>
+                        <Text style={styles.memberRole}>{member.role}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 )}
               </View>
@@ -379,6 +788,7 @@ const deleteGroup = async (groupId) => {
     </View>
   ))}
 </ScrollView>
+
       {searchQuery.length > 0 && (
         <TouchableOpacity style={styles.resetButton} onPress={resetSearch}>
           <Ionicons name="arrow-back" size={24} color="black" />

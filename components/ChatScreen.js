@@ -22,8 +22,20 @@ const ChatScreen = ({ route, navigation }) => {
   const [menuRotation, setMenuRotation] = useState(0); // Ротация за анимация на менюто
   const [recording, setRecording] = useState(null);
   const [playingMessageId, setPlayingMessageId] = useState(null);
+  const [userRole, setUserRole] = useState("");
   const flatListRef = useRef(null); // Референция за FlatList за автоматично скролване
   const userId = getAuth().currentUser.uid; // Получаване на текущия потребител от Firebase Authentication
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const userRef = doc(firestore, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        setUserRole(userSnap.data().role || "hunter"); // Ако няма роля, по подразбиране е "hunter"
+      }
+    };
+    fetchUserRole();
+  }, [userId]);
 
   // Зареждане на съобщенията в реално време
   useEffect(() => {
@@ -375,14 +387,21 @@ const ChatScreen = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => Alert.alert('Lost & Found feature coming soon!')}>
             <Text style={styles.menuItem}>Канал за загубени/намерени кучета</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Main')}>
-            <Text style={styles.menuItem}>Обратно към Main</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('AdminPanel')}>
-            <Text style={styles.menuItem}>AdminPanel</Text>
-          </TouchableOpacity>
+
+          {/* ✅ Само админите виждат тези бутони */}
+          {userRole === "admin" && (
+            <>
+              <TouchableOpacity onPress={() => navigation.navigate('Main')}>
+                <Text style={styles.menuItem}>Обратно към Main</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('AdminPanel')}>
+                <Text style={styles.menuItem}>AdminPanel</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       )}
+
 
       <FlatList
         ref={flatListRef}
