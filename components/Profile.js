@@ -385,18 +385,21 @@ const Profile = ({ route, navigation }) => {
             <View key={index}>
               {isEditing ? (
                 <>
+                  <Text>Име на оръжието</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Име"
                     value={eq.name}
                     onChangeText={(text) => handleUpdateEquipment(index, 'name', text)}
                   />
+                  <Text>Модел на оръжието</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Модел"
                     value={eq.model}
                     onChangeText={(text) => handleUpdateEquipment(index, 'model', text)}
                   />
+                  <Text>Калибър на оръжието</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Калибър"

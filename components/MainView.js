@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
 import { collection, doc, setDoc, getDocs, getFirestore,getDoc } from 'firebase/firestore';
 import { app } from '../firebaseConfig';
 import { getAuth } from '@firebase/auth';
@@ -105,34 +105,50 @@ const MainView = ({ navigation, route }) => {
     const userEmail = auth.currentUser.email;
     const userRef = doc(firestore, `users/${userId}`);
     const userSnap = await getDoc(userRef);
-    const userRole = userSnap.exists() ? userSnap.data().role : "hunter"; // Вземаме ролята от Firestore
+  
+    if (!userSnap.exists()) {
+      Alert.alert("Грешка", "Потребителят не беше намерен.");
+      return;
+    }
+  
+    const userData = userSnap.data();
+    const { firstName, lastName } = userData; // Вземаме firstName и lastName
+    const userRole = userSnap.exists() ? userData.role : "hunter"; 
   
     const memberDocRef = doc(firestore, `groups/${group.id}/members/${userId}`);
-  
-    // Проверяваме дали потребителят е вече член на групата
     const memberSnap = await getDoc(memberDocRef);
     
     if (!memberSnap.exists()) {
-      // Ако потребителят не е част от групата, добавяме го
       try {
-        await setDoc(memberDocRef, { email: userEmail, role: userRole }, { merge: true });
+        // Добавяме потребителя в members на избраната група
+        await setDoc(memberDocRef, {
+          email: userEmail,
+          role: userRole,
+          firstName: firstName, // Добавяме името
+          lastName: lastName,   // Добавяме фамилията
+        }, { merge: true });
+  
+        // Също така записваме groupId в основния документ на потребителя
+        await setDoc(userRef, { groupId: group.id }, { merge: true });
+  
         setGroupMemberships(prev => ({
           ...prev,
           [group.id]: "Влизане"
         }));
-        navigation.navigate('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
+  
+        navigation.replace('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
       } catch (error) {
-        console.error('Error joining group:', error);
+        console.error('Грешка при присъединяване към група:', error);
       }
     } else {
-      // Ако потребителят вече е част от групата, преминаваме директно към чат
       setGroupMemberships(prev => ({
         ...prev,
         [group.id]: "Влизане"
       }));
-      navigation.navigate('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
+      navigation.replace('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
     }
   };
+  
   
 
   return (
@@ -182,6 +198,7 @@ const MainView = ({ navigation, route }) => {
 MainView.propTypes = {
   navigation: PropTypes.shape({
     navigate: PropTypes.func.isRequired,
+    replace: PropTypes.func.isRequired,
   }).isRequired,
   route: PropTypes.shape({
     params: PropTypes.shape({

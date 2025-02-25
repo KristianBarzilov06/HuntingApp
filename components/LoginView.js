@@ -14,8 +14,8 @@ import {
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
-import { auth } from '../firebaseConfig';
+import { auth,firestore } from '../firebaseConfig';
+import {getDocs, doc, collection, getDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import PropTypes from 'prop-types';
 import styles from '../src/styles/LoginStyles';
@@ -66,54 +66,67 @@ const LoginView = ({ navigation }) => {
 
   const handleLogin = async (data) => {
     const { email, password } = data;
-
     setLoading(true);
-
+  
     try {
-      const networkState = await NetInfo.fetch();
-      if (!networkState.isConnected) {
-        Alert.alert(
-          'Няма връзка',
-          'Проверете интернет връзката си и опитайте отново.'
-        );
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const userId = user.uid;
+  
+      console.log(`🔹 Успешен вход: ${email}, ID: ${userId}`);
+  
+      const userRef = doc(firestore, `users/${userId}`);
+      const userSnap = await getDoc(userRef);
+  
+      if (!userSnap.exists()) {
+        Alert.alert('Грешка', 'Потребителят не е намерен в базата данни.');
         return;
       }
-
-      await signInWithEmailAndPassword(auth, email, password);
-
-      if (rememberMe) {
-        await AsyncStorage.setItem('rememberedEmail', email);
-        await AsyncStorage.setItem('rememberedPassword', password);
+  
+      const userData = userSnap.data();
+      const userRole = userData.role || "hunter";
+  
+      let userGroupId = null;
+      let groupName = '';
+  
+      // Търсене на групата на потребителя
+      const groupsRef = collection(firestore, "groups");
+      const groupsSnapshot = await getDocs(groupsRef);
+  
+      for (const groupDoc of groupsSnapshot.docs) {
+        const membersRef = collection(firestore, `groups/${groupDoc.id}/members`);
+        const memberSnap = await getDoc(doc(membersRef, userId));
+  
+        if (memberSnap.exists()) {
+          userGroupId = groupDoc.id;
+          groupName = groupDoc.data().name; // Вземи името на групата
+          break;
+        }
+      }
+  
+      console.log(`🔹 Намерена група ID: ${userGroupId}, Име на групата: ${groupName}`);
+  
+      await AsyncStorage.setItem('user', JSON.stringify({
+        id: userId,
+        role: userRole,
+        groupId: userGroupId,
+      }));
+  
+      if (userRole === 'admin') {
+        navigation.replace('Main');
+      } else if (userGroupId) {
+        navigation.replace('ChatScreen', { groupId: userGroupId, groupName: groupName }); // Подаване на groupName
       } else {
-        await AsyncStorage.removeItem('rememberedEmail');
-        await AsyncStorage.removeItem('rememberedPassword');
+        navigation.replace('Main');
       }
-
-      navigation.navigate('Main', { userEmail: email });
     } catch (error) {
-      switch (error.code) {
-        case 'auth/network-request-failed':
-          Alert.alert(
-            'Грешка в мрежата',
-            'Проверете интернет връзката си и опитайте отново.'
-          );
-          break;
-        case 'auth/wrong-password':
-          Alert.alert('Грешка', 'Грешна парола. Моля, опитайте отново.');
-          break;
-        case 'auth/user-not-found':
-          Alert.alert(
-            'Грешка',
-            'Потребителят не съществува. Моля, регистрирайте се.'
-          );
-          break;
-        default:
-          Alert.alert('Грешка при вход', error.message);
-      }
+      console.error('❌ Грешка при вход:', error);
+      Alert.alert('Грешка', 'Грешен имейл или парола.');
     } finally {
       setLoading(false);
     }
   };
+  
 
   return (
     <KeyboardAvoidingView
@@ -206,6 +219,7 @@ const LoginView = ({ navigation }) => {
 LoginView.propTypes = {
   navigation: PropTypes.shape({
     navigate: PropTypes.func.isRequired,
+    replace: PropTypes.func.isRequired,
   }).isRequired,
 };
 

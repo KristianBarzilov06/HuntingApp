@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Modal, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Modal, Alert, Image, KeyboardAvoidingView} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
 import * as ImagePicker from 'expo-image-picker';
@@ -285,31 +285,37 @@ const deleteGroup = async (groupId) => {
     console.log(`🔍 Зареждам профила на потребител ${userId} от група ${groupId}`);
   
     const db = getFirestore();
-    const userRef = doc(db, "groups", groupId, "members", userId);
+    
+    // 1. Вземаме информацията от `users` колекцията
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
   
-    try {
-      const userSnap = await getDoc(userRef);
+    // 2. Вземаме допълнителни данни от `members`
+    const groupUserRef = doc(db, "groups", groupId, "members", userId);
+    const groupUserSnap = await getDoc(groupUserRef);
   
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        setEditedUser({
-          id: userId,
-          firstName: userData.firstName || '',
-          lastName: userData.lastName || '',
-          email: userData.email || '',
-          bio: userData.bio || '',
-          role: userData.role || 'hunter',
-          profilePicture: userData.profilePicture || null,
-        });
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      setEditedUser({
+        id: userId,
+        firstName: userData.firstName || '',
+        lastName: userData.lastName || '',
+        email: userData.email || '',
+        bio: userData.bio || '',
+        role: groupUserSnap.exists() ? (groupUserSnap.data().role || 'hunter') : 'hunter',
+        profilePicture: userData.profilePicture || null,
+        huntingLicense: userData.huntingLicense || {},
+        huntingNotes: userData.huntingNotes || {},
+        equipment: userData.equipment || [],
+        isGroupHunting: userData.isGroupHunting || false,
+        isSelectiveHunting: userData.isSelectiveHunting || false,
+        dogBreed: userData.dogBreed || '',
+      });
   
-        setSelectedGroup(groupId);
-        console.log(`✅ Успешно зареден потребител: ${userData.firstName} ${userData.lastName}`);
-      } else {
-        console.error("❌ Грешка: Потребителят не беше намерен в групата.");
-        Alert.alert("Грешка", "Потребителят не беше намерен.");
-      }
-    } catch (error) {
-      console.error("❌ Грешка при зареждане на потребителя:", error);
+      console.log(`✅ Успешно зареден потребител: ${userData.firstName} ${userData.lastName}`);
+    } else {
+      console.error("❌ Грешка: Потребителят не беше намерен в базата.");
+      Alert.alert("Грешка", "Потребителят не беше намерен.");
     }
   };
 
@@ -448,23 +454,46 @@ const handleEditUser = async () => {
 };
 
 
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-    Alert.alert(
-      "Изтриване на потребител",
-      "Сигурни ли сте, че искате да изтриете този потребител?",
-      [
-        { text: "Отказ", style: "cancel" },
-        { text: "Изтрий", style: "destructive", onPress: async () => {
+const handleDeleteUser = async () => {
+  if (!selectedUser) return;
+  Alert.alert(
+    "Изтриване на потребител",
+    "Сигурни ли сте, че искате да изтриете този потребител? Тази операция ще изтрие всички данни, свързани с него!",
+    [
+      { text: "Отказ", style: "cancel" },
+      {
+        text: "Изтрий",
+        style: "destructive",
+        onPress: async () => {
           const db = getFirestore();
-          await deleteDoc(doc(db, "users", selectedUser.id));
-          Alert.alert("Изтрито!", "Потребителят беше успешно изтрит.");
-          setIsEditModalVisible(false);
-          fetchGroupMembers(selectedGroup);
-        }}
-      ]
-    );
-  };
+          const auth = getAuth();
+          const user = auth.currentUser;
+
+          try {
+            await deleteDoc(doc(db, "users", selectedUser.id));
+
+            const membersRef = collection(db, `groups/${selectedGroup}/members`);
+            const memberRef = doc(membersRef, selectedUser.id);
+            await deleteDoc(memberRef);
+
+            if (user && user.uid === selectedUser.id) {
+              await user.delete();
+              console.log("✅ Акаунтът беше изтрит успешно от Firebase Authentication");
+            }
+
+            Alert.alert("Изтрито!", "Потребителят беше успешно изтрит.");
+            setIsEditModalVisible(false);
+            fetchGroupMembers(selectedGroup);
+          } catch (error) {
+            console.error("❌ Грешка при изтриване на потребителя:", error);
+            Alert.alert("Грешка", "Неуспешно изтриване на потребителя.");
+          }
+        },
+      },
+    ]
+  );
+};
+
   const updateChairmanInGroup = async (user) => {
     if (!selectedGroup || !user.id) {
       console.error("❌ Грешка: Няма избрана група или потребителят няма ID!");
@@ -494,7 +523,14 @@ const handleEditUser = async () => {
     }
   };
 
-  // Зарежда регионите и групите при стартиране
+  const handleDeleteEquipment = (index) => {
+    setEditedUser((prevState) => {
+      const newEquipment = [...prevState.equipment];
+      newEquipment.splice(index, 1); // Премахваме елемента по индекс
+      return { ...prevState, equipment: newEquipment };
+    });
+  };
+  
   React.useEffect(() => {
     fetchRegionsAndGroups();
     fetchUserRole();
@@ -565,154 +601,203 @@ const handleEditUser = async () => {
 
       <Modal visible={isEditModalVisible} animationType="slide" transparent={true}>
   <View style={styles.modalContainer}>
-    <View style={styles.modalContent}>
-      <ScrollView style={styles.modalScroll}>
-        <Text style={styles.modalTitle}>Редактиране на потребител</Text>
+    <KeyboardAvoidingView behavior="padding" style={styles.keyboardAvoidingContainer}>
+      <View style={styles.modalContent}>
 
-        {/* Профилна снимка */}
-        <TouchableOpacity onPress={handleProfilePictureChange} style={styles.profilePictureContainer}>
-          {editedUser.profilePicture ? (
-            <Image source={{ uri: editedUser.profilePicture }} style={styles.profilePicture} />
-          ) : (
-            <Ionicons name="person-circle" size={100} color="gray" />
-          )}
-        </TouchableOpacity>
-
-        <TextInput style={styles.input} placeholder="Име" value={editedUser.firstName} 
-          onChangeText={(text) => setEditedUser({...editedUser, firstName: text})} 
-        />
-        
-        <TextInput style={styles.input} placeholder="Фамилия" value={editedUser.lastName} 
-          onChangeText={(text) => setEditedUser({...editedUser, lastName: text})} 
-        />
-        
-        <TextInput style={styles.input} placeholder="Имейл" value={editedUser.email} 
-          onChangeText={(text) => setEditedUser({...editedUser, email: text})} 
-        />
-        
-        <TextInput style={styles.input} placeholder="Биография" value={editedUser.bio} 
-          onChangeText={(text) => setEditedUser({...editedUser, bio: text})} 
-          multiline
-        />
-
-        <Text style={styles.modalLabel}>Роля:</Text>
-        <Picker 
-          selectedValue={editedUser.role} 
-          onValueChange={(value) => {
-            setEditedUser({ ...editedUser, role: value });
-
-            // ✅ Ако ролята е "chairman", обнови групата с новия председател
-            if (value === "chairman") {
-              updateChairmanInGroup(editedUser);
-            }
-          }} 
-          style={styles.picker}
+        <ScrollView 
+          style={styles.modalScroll} 
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Picker.Item label="Ловец" value="hunter" />
-          <Picker.Item label="Админ" value="admin" />
-          <Picker.Item label="Председател" value="chairman" />
-        </Picker>
+          <Text style={styles.modalTitle}>Редактиране на потребител</Text>
 
-        <Text style={styles.modalLabel}>Ловен лиценз:</Text>
-        <Text>Начало: {editedUser.huntingLicense?.start || 'Няма избран срок'}</Text>
-        <Text>Край: {editedUser.huntingLicense?.end || 'Няма избран срок'}</Text>
-        <TouchableOpacity onPress={() => setShowLicenseDatePicker(true)} style={styles.datePickerButton}>
-          <Text>Промени</Text>
-        </TouchableOpacity>
-        {showLicenseDatePicker && (
-          <DateTimePicker
-            value={editedUser.huntingLicense?.start ? new Date(editedUser.huntingLicense.start) : new Date()}
-            mode="date"
-            display="default"
-            onChange={handleLicenseDateChange}
-          />
-        )}
+          {/* Профилна снимка */}
+          <TouchableOpacity onPress={handleProfilePictureChange} style={styles.profilePictureContainer}>
+            {editedUser.profilePicture ? (
+              <Image source={{ uri: editedUser.profilePicture }} style={styles.profilePicture} />
+            ) : (
+              <Ionicons name="person-circle" size={100} color="gray" />
+            )}
+          </TouchableOpacity>
 
-        {/* Ловна бележка */}
-        <Text style={styles.modalLabel}>Ловна бележка:</Text>
-        <Text>Начало: {editedUser.huntingNotes?.start || 'Няма избран срок'}</Text>
-        <Text>Край: {editedUser.huntingNotes?.end || 'Няма избран срок'}</Text>
-        <TouchableOpacity onPress={() => setShowNotesDatePicker(true)} style={styles.datePickerButton}>
-          <Text>Промени</Text>
-        </TouchableOpacity>
-        {showNotesDatePicker && (
-          <DateTimePicker
-            value={editedUser.huntingNotes?.start ? new Date(editedUser.huntingNotes.start) : new Date()}
-            mode="date"
-            display="default"
-            onChange={handleNotesDateChange}
-          />
-        )}
-
-        <Text style={styles.modalLabel}>Куче:</Text>
-        <Picker selectedValue={editedUser.dogBreed} onValueChange={(value) => setEditedUser({...editedUser, dogBreed: value})} 
-          style={styles.picker}
-        >
-          <Picker.Item label="Дратхаар" value="Дратхаар" />
-          <Picker.Item label="Гонче" value="Гонче" />
-          <Picker.Item label="Кокершпаньол" value="Кокершпаньол" />
-        </Picker>
-
-        <Text style={styles.modalLabel}>Оборудване:</Text>
-        {editedUser.equipment?.map((eq, index) => (
-          <View key={index}>
-            <TextInput style={styles.input} placeholder="Име" value={eq.name} 
-              onChangeText={(text) => {
-                const newEquipment = [...editedUser.equipment];
-                newEquipment[index].name = text;
-                setEditedUser({...editedUser, equipment: newEquipment});
-              }} 
+          {/* Полета за редакция */}
+          <View style={styles.inputRow}>
+            <TextInput 
+              style={styles.input} 
+              placeholder="Име" 
+              value={editedUser.firstName} 
+              onChangeText={(text) => setEditedUser({...editedUser, firstName: text})} 
             />
-            <TextInput style={styles.input} placeholder="Модел" value={eq.model} 
-              onChangeText={(text) => {
-                const newEquipment = [...editedUser.equipment];
-                newEquipment[index].model = text;
-                setEditedUser({...editedUser, equipment: newEquipment});
-              }} 
-            />
-            <TextInput style={styles.input} placeholder="Калибър" value={eq.caliber} 
-              onChangeText={(text) => {
-                const newEquipment = [...editedUser.equipment];
-                newEquipment[index].caliber = text;
-                setEditedUser({...editedUser, equipment: newEquipment});
-              }} 
+            <TextInput 
+              style={styles.input} 
+              placeholder="Фамилия" 
+              value={editedUser.lastName} 
+              onChangeText={(text) => setEditedUser({...editedUser, lastName: text})} 
             />
           </View>
-        ))}
 
-        <View style={styles.checkboxContainer}>
-          <Checkbox status={editedUser.isGroupHunting ? 'checked' : 'unchecked'} 
-            onPress={() => setEditedUser({...editedUser, isGroupHunting: !editedUser.isGroupHunting})} 
+          <TextInput 
+            style={styles.input} 
+            placeholder="Имейл" 
+            value={editedUser.email} 
+            onChangeText={(text) => setEditedUser({...editedUser, email: text})} 
           />
-          <Text>Групов лов</Text>
+
+          {/* Биография */}
+          <TextInput
+            style={styles.bioInput}
+            placeholder="Биография"
+            value={editedUser.bio}
+            onChangeText={(text) => setEditedUser({...editedUser, bio: text})}
+            multiline
+            numberOfLines={4}
+          />
+
+          {/* Роля */}
+          <Text style={styles.modalLabel}>Роля:</Text>
+          <Picker 
+            selectedValue={editedUser.role} 
+            onValueChange={(value) => setEditedUser({ ...editedUser, role: value })} 
+            style={styles.picker}
+          >
+            <Picker.Item label="Ловец" value="hunter" />
+            <Picker.Item label="Админ" value="admin" />
+            <Picker.Item label="Председател" value="chairman" />
+          </Picker>
+
+          {/* Ловен лиценз и ловна бележка */}
+          <View style={styles.dateRow}>
+            <View style={styles.dateContainer}>
+              <Text>Лиценз: {editedUser.huntingLicense?.start || 'Няма избран срок'}</Text>
+              <TouchableOpacity onPress={() => setShowLicenseDatePicker(true)} style={styles.datePickerButton}>
+                <Text>Промени</Text>
+              </TouchableOpacity>
+            </View>
+            {showLicenseDatePicker && (
+              <DateTimePicker
+                value={editedUser.huntingLicense?.start ? new Date(editedUser.huntingLicense.start) : new Date()}
+                mode="date"
+                display="default"
+                onChange={handleLicenseDateChange}
+              />
+            )}
+            <View style={styles.dateContainer}>
+              <Text>Бележка: {editedUser.huntingNotes?.start || 'Няма избран срок'}</Text>
+              <TouchableOpacity onPress={() => setShowNotesDatePicker(true)} style={styles.datePickerButton}>
+                <Text>Промени</Text>
+              </TouchableOpacity>
+            </View>
+            {showNotesDatePicker && (
+              <DateTimePicker
+                value={editedUser.huntingNotes?.start ? new Date(editedUser.huntingNotes.start) : new Date()}
+                mode="date"
+                display="default"
+                onChange={handleNotesDateChange}
+              />
+            )}
+          </View>
+
+          {/* Избор на куче */}
+          <Text style={styles.modalLabel}>Куче:</Text>
+          <Picker selectedValue={editedUser.dogBreed} onValueChange={(value) => setEditedUser({...editedUser, dogBreed: value})} 
+            style={styles.picker}
+          >
+            <Picker.Item label="Дратхаар" value="Дратхаар" />
+            <Picker.Item label="Гонче" value="Гонче" />
+            <Picker.Item label="Кокершпаньол" value="Кокершпаньол" />
+          </Picker>
+
+          {/* Чекбокси */}
+          <View style={styles.checkboxContainer}>
+            <Checkbox 
+              status={editedUser.isGroupHunting ? 'checked' : 'unchecked'} 
+              onPress={() => setEditedUser({...editedUser, isGroupHunting: !editedUser.isGroupHunting})} 
+            />
+            <Text>Групов лов</Text>
+          </View>
+
+          <View style={styles.checkboxContainer}>
+            <Checkbox 
+              status={editedUser.isSelectiveHunting ? 'checked' : 'unchecked'} 
+              onPress={() => setEditedUser({...editedUser, isSelectiveHunting: !editedUser.isSelectiveHunting})} 
+            />
+            <Text>Подборен лов</Text>
+          </View>
+
+          {/* Оборудване */}
+          <Text style={styles.modalLabel}>Оборудване:</Text>
+          {editedUser.equipment?.map((eq, index) => (
+            <View key={index} style={styles.equipmentContainer}>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Име" 
+                value={eq.name} 
+                onChangeText={(text) => {
+                  const newEquipment = [...editedUser.equipment];
+                  newEquipment[index].name = text;
+                  setEditedUser({...editedUser, equipment: newEquipment});
+                }} 
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Модел" 
+                value={eq.model} 
+                onChangeText={(text) => {
+                  const newEquipment = [...editedUser.equipment];
+                  newEquipment[index].model = text;
+                  setEditedUser({...editedUser, equipment: newEquipment});
+                }} 
+              />
+              <TextInput 
+                style={styles.input} 
+                placeholder="Калибър" 
+                value={eq.caliber} 
+                onChangeText={(text) => {
+                  const newEquipment = [...editedUser.equipment];
+                  newEquipment[index].caliber = text;
+                  setEditedUser({...editedUser, equipment: newEquipment});
+                }} 
+              />
+              {/* Бутон за изтриване */}
+              <TouchableOpacity onPress={() => handleDeleteEquipment(index)} style={styles.deleteEquipmentButton}>
+                <Ionicons name="trash-outline" size={20} color="red" />
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          {/* Бутон за добавяне на оборудване */}
+          <TouchableOpacity 
+            style={styles.addEquipmentButton} 
+            onPress={() => setEditedUser({...editedUser, equipment: [...editedUser.equipment, { name: '', model: '', caliber: '' }]})}
+          >
+            <Ionicons name="add-circle-outline" size={20} color="white" />
+            <Text style={styles.addEquipmentButtonText}>Добави оборудване</Text>
+          </TouchableOpacity>
+
+          {/* Бутон за изтриване на потребителя */}
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteUser}>
+            <Text style={styles.deleteButtonText}>Изтриване на акаунт?</Text>
+          </TouchableOpacity>
+
+        </ScrollView>
+
+        {/* Бутоните за потвърждение и отказ */}
+        <View style={styles.modalButtonsContainer}>
+          <TouchableOpacity style={styles.confirmButton} onPress={handleEditUser}>
+            <Text style={styles.confirmButtonText}>Запази</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.closeButton} onPress={() => setIsEditModalVisible(false)}>
+            <Text style={styles.closeButtonText}>Отказ</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.checkboxContainer}>
-          <Checkbox status={editedUser.isSelectiveHunting ? 'checked' : 'unchecked'} 
-            onPress={() => setEditedUser({...editedUser, isSelectiveHunting: !editedUser.isSelectiveHunting})} 
-          />
-          <Text>Подборен лов</Text>
-        </View>
-
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteUser}>
-          <Text style={styles.deleteButtonText}>Изтрий</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <View style={styles.modalButtonsContainer}>
-        <TouchableOpacity style={styles.confirmButton} onPress={handleEditUser}>
-          <Text style={styles.confirmButtonText}>Запази</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.closeButton} onPress={() => setIsEditModalVisible(false)}>
-          <Text style={styles.closeButtonText}>Отказ</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   </View>
 </Modal>
 
-      <ScrollView style={styles.listContainer}>
+<ScrollView style={styles.listContainer}>
   {(searchQuery.length > 0 ? filteredRegions : BULGARIAN_REGIONS).map(region => (
     <View key={region}>
       {/* Натискащ се елемент за областта */}

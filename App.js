@@ -8,6 +8,7 @@ import Profile from './components/Profile';
 import ChatScreen from './components/ChatScreen';
 import LoadingScreen from './components/LoadingScreen';
 import AdminPanel from './components/AdminPanel';
+import EventsScreen from './components/EventsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,6 +31,7 @@ const App = () => {
         <Stack.Screen name="Profile" component={Profile} options={{ headerShown: false }} />
         <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }} />
         <Stack.Screen name="AdminPanel" component={AdminPanel} options={{ headerShown: false }} />
+        <Stack.Screen name="EventsScreen" component={EventsScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

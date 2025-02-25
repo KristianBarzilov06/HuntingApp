@@ -73,10 +73,10 @@ export default StyleSheet.create({
   groupName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#242c0f', // Тъмен текст за четимост
+    color: '#242c0f',
   },
   membersContainer: {
-    backgroundColor: '#D9E88A', // Светло зелено за потребителския списък
+    backgroundColor: '#D9E88A',
     padding: 12,
     borderRadius: 10,
     marginTop: 5,
@@ -94,7 +94,7 @@ export default StyleSheet.create({
     justifyContent: 'space-between',
     padding: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#6F8F20', // Линия за разделяне
+    borderBottomColor: '#6F8F20',
   },
   memberEmail: {
     fontSize: 16,
@@ -128,12 +128,12 @@ export default StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#558b2f', // По-наситен зелен за по-голям контраст
+    backgroundColor: '#558b2f',
     padding: 12,
     borderRadius: 10,
     justifyContent: 'center',
     marginVertical: 10,
-    shadowColor: '#000', // Добавяме лека сянка за изпъкване
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
@@ -185,12 +185,12 @@ export default StyleSheet.create({
   },
   selectedRegion: {
     fontWeight: 'bold',
-    color: '#ffffff',  // Бял текст за по-добър контраст
-    backgroundColor: '#1b5e20',  // Тъмнозелено за добър контраст
+    color: '#ffffff',
+    backgroundColor: '#1b5e20',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    borderWidth: 2,  // Леко очертаване
+    borderWidth: 2,
     borderColor: '#145214',
   },
   groupContainer: {
@@ -214,8 +214,8 @@ export default StyleSheet.create({
   
   menuContainer: {
     position: "absolute",
-    top: 0,  // Задаваме 0, за да бъде точно в горната част на групата
-    right: 10,  // Позициониране отдясно
+    top: 0,
+    right: 10,
     backgroundColor: "white",
     borderRadius: 8,
     shadowColor: "#000",
@@ -223,7 +223,7 @@ export default StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
-    zIndex: 100, // Увеличаваме zIndex, за да изкараме менюто над другите елементи
+    zIndex: 100,
     padding: 5,
   },
   menuItem: {
@@ -245,20 +245,6 @@ modalContainer: {
   alignItems: 'center',
 },
 
-modalContent: {
-  backgroundColor: '#fff',
-  padding: 20,
-  borderRadius: 10,
-  width: '90%',
-  maxHeight: '80%', // Увеличен размер
-  alignItems: 'center',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 3 },
-  shadowOpacity: 0.3,
-  shadowRadius: 5,
-  elevation: 5,
-},
-
 picker: {
   width: '100%',
   backgroundColor: '#f1f1f1',
@@ -273,64 +259,45 @@ checkboxContainer: {
 },
 
 modalButtonsContainer: {
-  width: '100%',
-  marginTop: 10,
+  width: "100%",
+  flexDirection: "row",
+  justifyContent: "space-between",
+  position: "absolute",
+  bottom: 20,
+  left: 0,
+  right: 0,
+  paddingHorizontal: 20,
 },
-
 confirmButton: {
-  backgroundColor: '#2e7d32',
+  backgroundColor: "#2e7d32",
   padding: 12,
   borderRadius: 8,
-  width: '100%',
-  alignItems: 'center',
-  marginBottom: 5,
-},
-
-confirmButtonText: {
-  color: 'white',
-  fontSize: 16,
-  fontWeight: 'bold',
+  width: "48%",
+  alignItems: "center",
+  marginLeft:20,
 },
 
 closeButton: {
-  backgroundColor: 'gray',
+  backgroundColor: "gray",
   padding: 12,
   borderRadius: 8,
-  width: '100%',
-  alignItems: 'center',
-  marginBottom: 5,
-},
-
-closeButtonText: {
-  color: 'white',
-  fontSize: 16,
-  fontWeight: 'bold',
-},
-
-deleteButtonText: {
-  color: 'white',
-  fontSize: 16,
-  fontWeight: 'bold',
-},
-datePickerButton: {
-  backgroundColor: "#4CAF50",
-  paddingVertical: 10,
-  paddingHorizontal: 15,
-  borderRadius: 8,
-  marginTop: 10,
+  width: "48%",
   alignItems: "center",
-  width: "50%",
-  alignSelf: "center"
+  marginLeft:20,
 },
 
-datePickerButtonText: {
+confirmButtonText: {
   color: "white",
   fontSize: 16,
   fontWeight: "bold",
+  textAlign: "center",
 },
 
-modalScroll: {
-  maxHeight: "80%",
+closeButtonText: {
+  color: "white",
+  fontSize: 16,
+  fontWeight: "bold",
+  textAlign: "center",
 },
 
 profilePictureContainer: {
@@ -355,5 +322,88 @@ deleteButton: {
   width: "80%",
   alignSelf: "center",
   marginTop: 10,
+},
+
+keyboardAvoidingContainer: {
+  flex: 1,
+  justifyContent: "center",
+  alignItems: "center",
+  width: "100%",
+},
+
+modalScroll: {
+  flex: 1, 
+  width: "100%",
+  maxHeight: "80%",
+},
+
+bioInput: {
+  width: "100%",
+  padding: 10,
+  borderWidth: 1,
+  borderRadius: 5,
+  borderColor: "#ccc",
+  backgroundColor: "#f9f9f9",
+  textAlignVertical: "top",
+  minHeight: 80,
+  maxHeight: 150,
+},
+
+modalContent: {
+  backgroundColor: "#fff",
+  padding: 20,
+  borderRadius: 10,
+  width: "90%",
+  maxHeight: "75%",
+  flex: 1, 
+  alignItems: "center",
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.3,
+  shadowRadius: 5,
+  elevation: 5,
+},
+
+dateContainer: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  width: "100%",
+  marginBottom: 10,
+},
+
+datePickerButton: {
+  backgroundColor: "#4CAF50",
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  borderRadius: 8,
+  alignItems: "center",
+},
+
+datePickerButtonText: {
+  color: "white",
+  fontSize: 14,
+  fontWeight: "bold",
+},
+addEquipmentButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#1976D2',
+  padding: 12,
+  borderRadius: 10,
+  justifyContent: 'center',
+  marginVertical: 10,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.3,
+  shadowRadius: 3,
+  elevation: 3,
+},
+
+addEquipmentButtonText: {
+  fontSize: 18,
+  color: 'white',
+  marginLeft: 5,
+  fontWeight: 'bold',
 },
 });

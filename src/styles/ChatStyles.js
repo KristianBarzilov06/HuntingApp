@@ -57,10 +57,14 @@ export default StyleSheet.create({
     borderRadius: 5,
   },
   messageImage: {
-    width: 200,
-    height: 200,
+    width: 250,
+    height: 250,
     borderRadius: 10,
-    resizeMode: 'cover',
+  },
+  messageVideo: {
+    width: 250, // Ширина на видеото
+    height: 250, // Височина на видеото
+    borderRadius: 10,
   },
   profileIcon: {
     width: 0,

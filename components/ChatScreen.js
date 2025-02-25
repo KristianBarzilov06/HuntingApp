@@ -8,7 +8,7 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc } fro
 import { getAuth } from 'firebase/auth';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
-import { Audio } from 'expo-av';
+import { Audio, Video } from 'expo-av';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const ChatScreen = ({ route, navigation }) => {
@@ -90,51 +90,55 @@ const ChatScreen = ({ route, navigation }) => {
     setNewMessage('');
   };
 
-  const uploadImageFromGallery = async () => {
+  const uploadMediaFromGallery = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     console.log("Permission granted:", permissionResult.granted);
     if (!permissionResult.granted) {
       Alert.alert('Нужно е разрешение', 'Моля, дайте разрешение за достъп до галерията.');
       return;
     }
-
+  
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaTypeOptions.All, // Позволяваме избор на снимки и видеа
       allowsEditing: true,
       quality: 0.7,
     });
-
+  
     console.log("Picker result:", pickerResult); 
     if (!pickerResult.canceled) {
-      const selectedImage = pickerResult.assets && pickerResult.assets[0];
-      if (selectedImage?.uri) {
-        console.log('Selected image URI:', selectedImage.uri);
-        uploadToFirebaseStorage(selectedImage.uri, 'images');
+      const selectedMedia = pickerResult.assets && pickerResult.assets[0];
+      if (selectedMedia?.uri) {
+        console.log('Selected media URI:', selectedMedia.uri);
+        const mediaType = selectedMedia.type === 'video' ? 'videos' : 'images'; // Определяме дали е снимка или видео
+        uploadToFirebaseStorage(selectedMedia.uri, mediaType); // Качваме в Firebase
       }
     } else {
-      console.log('Image selection was cancelled.');
+      console.log('Media selection was cancelled.');
     }
   };
-
-  const takePhoto = async () => {
+  
+  const takeMediaWithCamera = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Нужно е разрешение', 'Моля, дайте разрешение за използване на камерата.');
       return;
     }
-
+  
     const cameraResult = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       quality: 0.7,
+      mediaTypes: ImagePicker.MediaTypeOptions.All, // Позволяваме заснемане както на снимки, така и на видеа
     });
-
+  
     if (!cameraResult.canceled) {
-      const capturedImage = cameraResult.assets && cameraResult.assets[0];
-      if (capturedImage?.uri) {
-        uploadToFirebaseStorage(capturedImage.uri, 'photos');
+      const capturedMedia = cameraResult.assets && cameraResult.assets[0];
+      if (capturedMedia?.uri) {
+        const mediaType = capturedMedia.type === 'video' ? 'videos' : 'images'; // Определяме дали е снимка или видео
+        uploadToFirebaseStorage(capturedMedia.uri, mediaType); // Качваме в Firebase
       }
     }
   };
+
 
   const startRecording = async () => {
     try {
@@ -177,29 +181,36 @@ const ChatScreen = ({ route, navigation }) => {
 
   const uploadToFirebaseStorage = async (uri, folder) => {
     try {
-      console.log("Uploading URI:", uri);
+      console.log("📤 Uploading URI:", uri);
       const response = await fetch(uri);
       const blob = await response.blob();
-      const fileRef = ref(getStorage(), `${folder}/${Date.now()}.mp3`);
+  
+      const fileRef = ref(getStorage(), `${folder}/${Date.now()}.${folder === 'videos' ? 'mp4' : 'jpg'}`);
       const uploadRes = await uploadBytes(fileRef, blob);
-      const downloadUrl = await getDownloadURL(fileRef);
-      console.log('Uploaded file URL:', downloadUrl);
-      console.log(uploadRes.metadata.fullPath);
-      
-
-      // Добавяне на съобщение с линка към Storage
+      let downloadUrl = await getDownloadURL(fileRef);
+  
+      console.log("✅ Uploaded file URL:", downloadUrl);
+  
+      // Проверяваме дали URL е валиден
+      if (!downloadUrl || typeof downloadUrl !== "string") {
+        console.error("❌ Invalid download URL from Firebase!");
+        Alert.alert("Грешка", "Неуспешно качване, няма URL.");
+        return;
+      }
+  
+      // Добавяне на съобщение в Firestore
       await addDoc(collection(firestore, 'groups', stringGroupId, 'messages'), {
         text: '',
         mediaUrl: downloadUrl,
-        mediaType: folder, // 'images', 'photos', 'audio'
-        filePath: uploadRes.metadata.fullPath,  // Пътя към файла, използваме imageId
+        mediaType: folder,
+        filePath: uploadRes.metadata.fullPath,
         storagePath: uploadRes.metadata.fullPath,
         timestamp: new Date(),
         userId: userId,
       });
     } catch (error) {
-      console.error('Error uploading file:', error);
-      Alert.alert('Грешка', 'Неуспешно качване на файла.');
+      console.error("❌ Error uploading file:", error);
+      Alert.alert("Грешка", "Неуспешно качване на файла.");
     }
   };
 
@@ -280,7 +291,13 @@ const ChatScreen = ({ route, navigation }) => {
   const renderMessage = ({ item }) => {
     const isMyMessage = item.userId === userId;
     const profilePicture = profilePictures[item.userId];
-
+  
+    // Логове за проверка на mediaUrl и mediaType
+    console.log("🔍 Rendering message:", item);
+    if (item.mediaUrl) {
+      console.log(`🎥 Media URL: ${item.mediaUrl}, Type: ${item.mediaType}`);
+    }
+  
     return (
       <TouchableOpacity 
         onLongPress={() => handleLongPress(item.id)} 
@@ -295,9 +312,10 @@ const ChatScreen = ({ route, navigation }) => {
             )}
           </View>
         )}
-
+  
         <View style={[styles.messageItem, isMyMessage ? styles.myMessage : styles.otherMessage]}>
-          {item.mediaType === "audio" ? (
+          {/* Валидация за различните видове медии */}
+          {item.mediaType === "audio" && item.mediaUrl ? (
             <TouchableOpacity onPress={() => playAudio(item.mediaUrl, item.id)}>
               <Ionicons 
                 name={playingMessageId === item.id ? "pause-circle" : "play-circle"} 
@@ -305,45 +323,43 @@ const ChatScreen = ({ route, navigation }) => {
                 color="black" 
               />
             </TouchableOpacity>
+          ) : item.mediaType === "videos" && item.mediaUrl ? (
+            <>
+              
+              <Video
+                source={{ uri: item.mediaUrl }}
+                style={styles.messageVideo}
+                useNativeControls
+                shouldPlay={false} // Не стартираме автоматично
+                resizeMode="contain"
+                isLooping={false}
+                onLoadStart={() => console.log("📡 Loading video...")}
+                onLoad={(status) => console.log("✅ Video loaded:", status)}
+                onError={(error) => console.error("❌ Video load error:", error)}
+              />
+            </>
           ) : item.mediaUrl ? (
             <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
           ) : (
             <Text style={styles.messageText}>{item.text}</Text>
           )}
         </View>
-
+  
         {isMyMessage && (
           <View style={styles.iconContainer}>
             {profilePictures[userId] ? (
-              <Image 
-                source={{ uri: profilePictures[userId] }} 
-                style={styles.profileIcon}
-              />
+              <Image source={{ uri: profilePictures[userId] }} style={styles.profileIcon} />
             ) : (
-              <Ionicons 
-                name="person-circle-outline"
-                size={30}
-                color="black"
-                style={styles.profileIcon}
-              />
+              <Ionicons name="person-circle-outline" size={30} color="black" />
             )}
           </View>
         )}
       </TouchableOpacity>
     );
   };
-
   const toggleMenu = () => {
     setMenuVisible(prev => !prev);
     setMenuRotation(prev => (prev === 0 ? 90 : 0));
-  };
-
-  const showGalleryAlert = () => {
-    uploadImageFromGallery();
-  };
-
-  const showCameraAlert = () => {
-    takePhoto();
   };
 
   const scrollToBottom = () => {
@@ -372,12 +388,6 @@ const ChatScreen = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => Alert.alert('Guest group chat functionality coming soon!')}>
             <Text style={styles.menuItem}>Членове и гости</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={showGalleryAlert}>
-            <Text style={styles.menuItem}>Галерия</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={showCameraAlert}>
-            <Text style={styles.menuItem}>Камера</Text>
-          </TouchableOpacity>
           <TouchableOpacity onPress={() => Alert.alert('Notifications feature coming soon!')}>
             <Text style={styles.menuItem}>Новини и известия</Text>
           </TouchableOpacity>
@@ -387,8 +397,16 @@ const ChatScreen = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => Alert.alert('Lost & Found feature coming soon!')}>
             <Text style={styles.menuItem}>Канал за загубени/намерени кучета</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('EventsScreen', { groupId, groupName })}>
+            <Text style={styles.menuItem}>Канал за събития</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={uploadMediaFromGallery}>
+            <Text style={styles.menuItem}>Галерия</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={takeMediaWithCamera}>
+            <Text style={styles.menuItem}>Камера</Text>
+          </TouchableOpacity>
 
-          {/* ✅ Само админите виждат тези бутони */}
           {userRole === "admin" && (
             <>
               <TouchableOpacity onPress={() => navigation.navigate('Main')}>
@@ -413,17 +431,18 @@ const ChatScreen = ({ route, navigation }) => {
       />
 
       <View style={styles.inputContainer}>
-        <TouchableOpacity onPress={showGalleryAlert}>
-          <Ionicons name="image" size={30} color="black" style={styles.icon} />
-        </TouchableOpacity>
 
-        <TouchableOpacity onPress={showCameraAlert}>
-          <Ionicons name="camera" size={30} color="black" style={styles.icon} />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={uploadMediaFromGallery}>
+        <Ionicons name="image" size={30} color="black" />
+      </TouchableOpacity>
 
-        <TouchableOpacity onPress={recording ? stopRecording : startRecording}>
+      <TouchableOpacity onPress={takeMediaWithCamera}>
+        <Ionicons name="camera" size={30} color="black" />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={recording ? stopRecording : startRecording}>
           <Ionicons name={recording ? "stop-circle" : "mic"} size={30} color="black" />
-        </TouchableOpacity>
+      </TouchableOpacity>
 
         <TextInput
           style={styles.input}
@@ -431,7 +450,7 @@ const ChatScreen = ({ route, navigation }) => {
           value={newMessage}
           onChangeText={setNewMessage}
           onSubmitEditing={sendMessage}
-        />
+        />   
 
         <TouchableOpacity onPress={sendMessage}>
           <Ionicons name="send" size={30} color="black" />
