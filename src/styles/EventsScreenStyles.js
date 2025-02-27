@@ -85,38 +85,102 @@ export default StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
-  modalContainer: {
-    backgroundColor: 'white',
-    padding: 25,
-    borderRadius: 12,
-    width: '85%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
-  },
   modalDescription: {
     fontSize: 16,
     color: '#555',
     marginBottom: 12,
   },
+  participantItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 10,
+  },
+  participantInfo: {
+    flexDirection: 'column',
+    flex: 1,
+  },
+  participantName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  participantRole: {
+    fontSize: 14,
+    color: '#EEE', // По-светъл текст за контраст
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#DDD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#76A325',
+    borderColor: '#76A325',
+  },
+  datePickerButton: {
+    backgroundColor: '#007bff',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  datePickerButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  selectedDatesTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  locationInput: {
+    marginTop: 20,
+  },
   input: {
-    backgroundColor: '#F0F0F0',  // Леко сивкав фон за текстовите полета
-    padding: 10,
+    backgroundColor: '#333',
+    padding: 12,
     borderRadius: 8,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#555',
+    color: '#FFF',
+  },
+  pickerContainer: {
+    backgroundColor: '#333',
+    borderRadius: 10,
+    padding: 5,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#555',
+  },
+  picker: {
+    color: '#FFF',
+  },
+  selectedDatesContainer: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#292929',
+    borderRadius: 8,
+  },
+  selectedDateItem: {
+    fontSize: 14,
+    marginBottom: 5,
+    padding: 8,
+    backgroundColor: '#444',
+    borderRadius: 5,
+    textAlign: 'center',
+    color: '#FFF',
   },
   cancelButton: {
-    backgroundColor: '#FF5C5C',  // Червен за отказ
+    backgroundColor: '#D9534F',
     padding: 14,
     borderRadius: 10,
     alignItems: 'center',
@@ -132,19 +196,32 @@ export default StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  participantItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  participantText: {
-    fontSize: 16,
-    marginRight: 10,
-    color: '#333',
+
+  modalContainer: {
+    backgroundColor: '#1E1E1E',
+    padding: 25,
+    borderRadius: 12,
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  checkbox: {
-    marginRight: 10,
+
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 12,
+    textAlign: 'center',
   },
+
   modalButtonText: {
     fontSize: 18,
     color: 'white',

@@ -73,7 +73,7 @@ const RegisterView = ({ navigation }) => {
         email: email,
         firstName: data.firstName,
         lastName: data.lastName,
-        role: 'hunter',
+        roles: ["hunter"],
         bio: '',
         dogBreed: '',
         equipment: [],

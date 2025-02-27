@@ -19,6 +19,15 @@ const BULGARIAN_REGIONS = [
   "Стара Загора", "Търговище", "Хасково", "Шумен", "Ямбол"
 ];
 
+const roleTranslations = {
+  admin:"Админ",
+  chairman: "Председател",
+  secretary: "Секретар",
+  member: "Член",
+  hunter: "Ловец",
+  guest: "Гост",
+};
+
 const AdminPanel = ({ navigation, route }) => {
   const { userEmail } = route.params || {}; 
   const [searchQuery, setSearchQuery] = useState('');
@@ -277,32 +286,37 @@ const deleteGroup = async (groupId) => {
 
   const fetchUserProfile = async (userId, groupId) => {
     if (!userId || !groupId) {
-      console.error("❌ Грешка: Липсва група или потребител!");
       Alert.alert("Грешка", "Не може да се зареди потребител без група!");
       return;
     }
   
-    console.log(`🔍 Зареждам профила на потребител ${userId} от група ${groupId}`);
-  
     const db = getFirestore();
     
-    // 1. Вземаме информацията от `users` колекцията
     const userRef = doc(db, "users", userId);
     const userSnap = await getDoc(userRef);
-  
-    // 2. Вземаме допълнителни данни от `members`
+    
     const groupUserRef = doc(db, "groups", groupId, "members", userId);
     const groupUserSnap = await getDoc(groupUserRef);
-  
     if (userSnap.exists()) {
       const userData = userSnap.data();
+      let userRoles = groupUserSnap.exists() ? (groupUserSnap.data().roles || []) : [];
+  
+      if (!Array.isArray(userRoles) || userRoles.length === 0) {
+        userRoles = ["hunter"];
+      }
+  
+      if (userRoles.includes("chairman") || userRoles.includes("secretary")) {
+        userRoles = [...new Set([...userRoles, "member", "hunter"])];
+      } else if (userRoles.includes("member")) {
+        userRoles = [...new Set([...userRoles, "hunter"])];
+      }
       setEditedUser({
         id: userId,
         firstName: userData.firstName || '',
         lastName: userData.lastName || '',
         email: userData.email || '',
         bio: userData.bio || '',
-        role: groupUserSnap.exists() ? (groupUserSnap.data().role || 'hunter') : 'hunter',
+        roles: userRoles,
         profilePicture: userData.profilePicture || null,
         huntingLicense: userData.huntingLicense || {},
         huntingNotes: userData.huntingNotes || {},
@@ -351,7 +365,6 @@ const handleProfilePictureChange = async () => {
     if (!pickerResult.canceled) {
       const selectedImage = pickerResult.assets[0].uri;
 
-      // ✅ Качваме снимката в Firebase Storage
       const storage = getStorage();
       const fileRef = ref(storage, `profilePictures/${selectedUser.id}`);
       const response = await fetch(selectedImage);
@@ -359,12 +372,10 @@ const handleProfilePictureChange = async () => {
       await uploadBytes(fileRef, blob);
       const downloadUrl = await getDownloadURL(fileRef);
 
-      // ✅ Обновяване на профилната снимка в Firestore
       const db = getFirestore();
       const userRef = doc(db, "users", selectedUser.id);
       await updateDoc(userRef, { profilePicture: downloadUrl });
 
-      // ✅ Обновяване на UI
       setEditedUser({ ...editedUser, profilePicture: downloadUrl });
       Alert.alert("Успешно!", "Профилната снимка беше сменена.");
     }
@@ -383,7 +394,7 @@ const handleLicenseDateChange = (event, selectedDate) => {
       }
     }));
   }
-  setShowLicenseDatePicker(false); // ✅ Скрии DatePicker-а след избора
+  setShowLicenseDatePicker(false);
 };
 
 const handleNotesDateChange = (event, selectedDate) => {
@@ -396,7 +407,7 @@ const handleNotesDateChange = (event, selectedDate) => {
       }
     }));
   }
-  setShowNotesDatePicker(false); // ✅ Скрии DatePicker-а след избора
+  setShowNotesDatePicker(false);
 };
 
 const handleEditUser = async () => {
@@ -410,49 +421,68 @@ const handleEditUser = async () => {
     return;
   }
 
-  const db = getFirestore();
-  const userRef = doc(db, "users", editedUser.id);
-  const membersCollection = collection(db, `groups/${selectedGroup}/members`);
+  Alert.alert(
+    "Потвърждение",
+    `Сигурни ли сте, че искате да промените ролята на ${editedUser.firstName || "Потребителя"}?`,
+    [
+      { text: "Отказ", style: "cancel" },
+      {
+        text: "Да, промени",
+        onPress: async () => {
+          const db = getFirestore();
+          const userRef = doc(db, "users", editedUser.id);
+          const membersCollection = collection(db, `groups/${selectedGroup}/members`);
+          
+          try {
+            // Гарантираме, че roles е масив (ако липсва, задаваме празен)
+            let updatedRoles = Array.isArray(editedUser.roles) ? [...editedUser.roles] : [];
 
-  try {
-    // ✅ Ако потребителят става председател, махаме текущия председател
-    if (editedUser.role === "chairman") {
-      console.log("🔍 Проверяваме за текущ председател...");
+            // Ако roles е празен, задаваме "hunter" по подразбиране
+            if (updatedRoles.length === 0) updatedRoles = ["hunter"];
 
-      const membersSnapshot = await getDocs(membersCollection);
-      for (const memberDoc of membersSnapshot.docs) {
-        const memberData = memberDoc.data();
-        if (memberData.role === "chairman" && memberDoc.id !== editedUser.id) {
-          console.log(`❌ Премахване на стар председател: ${memberData.firstName} ${memberData.lastName}`);
-          await updateDoc(doc(db, `groups/${selectedGroup}/members/${memberDoc.id}`), { role: "hunter" });
-        }
-      }
-    }
+            // Ако е председател или секретар, добавяме "member" и "hunter"
+            if (updatedRoles.includes("chairman") || updatedRoles.includes("secretary")) {
+              updatedRoles = [...new Set([...updatedRoles, "member", "hunter"])];
+            } else if (updatedRoles.includes("member")) {
+              updatedRoles = [...new Set([...updatedRoles, "hunter"])];
+            }
 
-    // ✅ Обновяване на потребителя в `users` (основната колекция)
-    await updateDoc(userRef, editedUser);
+            // Ако има нов "chairman", махаме предишния
+            if (updatedRoles.includes("chairman")) {
+              const membersSnapshot = await getDocs(membersCollection);
+              for (const memberDoc of membersSnapshot.docs) {
+                const memberData = memberDoc.data();
+                if (Array.isArray(memberData.roles) && memberData.roles.includes("chairman") && memberDoc.id !== editedUser.id) {
+                  let newRoles = memberData.roles.filter(role => role !== "chairman");
+                  if (newRoles.length === 0) newRoles.push("hunter");
+                  await updateDoc(doc(db, `groups/${selectedGroup}/members/${memberDoc.id}`), { roles: newRoles });
+                }
+              }
+            }
 
-    // ✅ Обновяване на потребителя в `members` на групата
-    const userGroupRef = doc(db, `groups/${selectedGroup}/members/${editedUser.id}`);
-    await updateDoc(userGroupRef, { role: editedUser.role });
+            // Записваме новите роли
+            await updateDoc(userRef, { roles: updatedRoles });
+            const userGroupRef = doc(db, `groups/${selectedGroup}/members/${editedUser.id}`);
+            await updateDoc(userGroupRef, { roles: updatedRoles });
 
-    // ✅ Ако е председател, обновяваме и информацията на групата
-    if (editedUser.role === "chairman") {
-      await updateChairmanInGroup(editedUser);
-    }
+            // Обновяване на групата, ако има нов председател
+            if (updatedRoles.includes("chairman")) {
+              await updateChairmanInGroup(editedUser);
+            }
 
-    Alert.alert("Успешно!", "Данните на потребителя бяха актуализирани.");
-    setIsEditModalVisible(false);
-
-    // ✅ Обновяваме списъка с членове и групи
-    fetchGroupMembers(selectedGroup);
-    fetchRegionsAndGroups();
-  } catch (error) {
-    console.error("❌ Грешка при обновяване на потребителя:", error);
-    Alert.alert("Грешка", "Неуспешно обновяване на потребителя.");
-  }
+            Alert.alert("Успешно!", "Ролите на потребителя бяха актуализирани.");
+            setIsEditModalVisible(false);
+            fetchGroupMembers(selectedGroup);
+            fetchRegionsAndGroups();
+          } catch (error) {
+            console.error("❌ Грешка при обновяване на потребителя:", error);
+            Alert.alert("Грешка", "Неуспешно обновяване на потребителя.");
+          }
+        },
+      },
+    ]
+  );
 };
-
 
 const handleDeleteUser = async () => {
   if (!selectedUser) return;
@@ -493,6 +523,32 @@ const handleDeleteUser = async () => {
     ]
   );
 };
+const getHighestRoleTranslation = (roles) => {
+  if (!Array.isArray(roles) || roles.length === 0) return roleTranslations["hunter"];
+
+  const roleHierarchy = ["admin", "chairman", "secretary", "member", "hunter", "guest"];
+  
+  const highestRole = roleHierarchy.find(role => roles.includes(role)) || "guest";
+  
+  return roleTranslations[highestRole];
+};
+
+{groupMembers.map((member, index) => (
+  <TouchableOpacity key={index} style={styles.memberItem} onPress={() => handleUserOptions(member)}>
+    <Text style={styles.memberEmail}>{member.email}</Text>
+    <Text style={styles.memberRole}>{getHighestRoleTranslation(member.roles)}</Text>
+  </TouchableOpacity>
+))}
+
+{groupMembers.map((member, index) => (
+  <TouchableOpacity key={index} style={styles.memberItem} onPress={() => handleUserOptions(member)}>
+    <Text style={styles.memberEmail}>{member.email}</Text>
+    <Text style={styles.memberRole}>
+      {getHighestRoleTranslation(member.roles || [member.role])}
+    </Text>
+  </TouchableOpacity>
+))}
+
 
   const updateChairmanInGroup = async (user) => {
     if (!selectedGroup || !user.id) {
@@ -654,16 +710,56 @@ const handleDeleteUser = async () => {
           />
 
           {/* Роля */}
-          <Text style={styles.modalLabel}>Роля:</Text>
-          <Picker 
-            selectedValue={editedUser.role} 
-            onValueChange={(value) => setEditedUser({ ...editedUser, role: value })} 
-            style={styles.picker}
-          >
-            <Picker.Item label="Ловец" value="hunter" />
-            <Picker.Item label="Админ" value="admin" />
-            <Picker.Item label="Председател" value="chairman" />
-          </Picker>
+          <Text style={styles.modalLabel}>Роли:</Text>
+
+          <View style={styles.rolesContainer}>
+            {Object.keys(roleTranslations).map((roleKey) => {
+              let userRoles = Array.isArray(editedUser.roles) ? [...new Set(editedUser.roles)] : [];
+
+              const isSelected = userRoles.includes(roleKey);
+              const isMandatoryRole = roleKey === "member" || roleKey === "hunter";
+
+              return (
+                <TouchableOpacity 
+                  key={roleKey} 
+                  style={[
+                    styles.roleItem, 
+                    isSelected && styles.roleItemSelected,
+                    isMandatoryRole && styles.disabledRole
+                  ]}
+                  onPress={() => {
+                    let updatedRoles = [...userRoles];
+
+                    if (isSelected) {
+                      if (isMandatoryRole) return;
+
+                      updatedRoles = updatedRoles.filter(role => role !== roleKey);
+                    } else {
+                      updatedRoles.push(roleKey);
+
+                      if (roleKey === "chairman" || roleKey === "secretary") {
+                        updatedRoles.push("member", "hunter");
+                      }
+                    }
+
+                    updatedRoles = [...new Set(updatedRoles)];
+
+                    setEditedUser({ ...editedUser, roles: updatedRoles });
+                  }}
+                  disabled={isMandatoryRole} 
+                >
+                  <Text style={[
+                    styles.roleText, 
+                    isSelected && styles.roleTextSelected, 
+                    isMandatoryRole && styles.disabledRoleText 
+                  ]}>
+                    {roleTranslations[roleKey]}
+                  </Text>
+                  {isSelected && <Ionicons name="checkmark-circle" size={20} color="white" />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           {/* Ловен лиценз и ловна бележка */}
           <View style={styles.dateRow}>
@@ -707,7 +803,7 @@ const handleDeleteUser = async () => {
             <Picker.Item label="Кокершпаньол" value="Кокершпаньол" />
           </Picker>
 
-          {/* Чекбокси */}
+          {/* Чекбокс */}
           <View style={styles.checkboxContainer}>
             <Checkbox 
               status={editedUser.isGroupHunting ? 'checked' : 'unchecked'} 
@@ -854,10 +950,12 @@ const handleDeleteUser = async () => {
                 {selectedGroup === group.id && (
                   <View style={styles.membersContainer}>
                     <Text style={styles.groupTitle}>Потребители:</Text>
-                    {selectedGroup === group.id && groupMembers.map((member, index) => (
+                      {groupMembers.map((member, index) => (
                       <TouchableOpacity key={index} style={styles.memberItem} onPress={() => handleUserOptions(member)}>
-                        <Text style={styles.memberEmail}>{member.email}</Text>
-                        <Text style={styles.memberRole}>{member.role}</Text>
+                        <Text style={styles.firstName}>{member.firstName} {member.lastName}</Text>
+                        <Text style={styles.memberRole}>
+                          {getHighestRoleTranslation(member.roles)}
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </View>

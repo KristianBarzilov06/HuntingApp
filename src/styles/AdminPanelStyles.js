@@ -406,4 +406,37 @@ addEquipmentButtonText: {
   marginLeft: 5,
   fontWeight: 'bold',
 },
+rolesContainer: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  marginBottom: 15,
+},
+roleItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#444',
+  padding: 10,
+  borderRadius: 8,
+  margin: 5,
+},
+roleText: {
+  fontSize: 16,
+  color: '#FFF',
+  marginRight: 5,
+},
+disabledRole: {
+  backgroundColor: "#555", // Сиво за неактивни роли
+  opacity: 0.6, // Леко прозрачно за заключени роли
+},
+disabledRoleText: {
+  color: "#ccc", // Избледнял текст за неизбираеми роли
+},
+roleItemSelected: {
+  backgroundColor: "#76A325", // Зелен фон за активни роли
+},
+roleTextSelected: {
+  fontWeight: "bold",
+  color: "white",
+},
 });
