@@ -22,38 +22,43 @@ const MainView = ({ navigation, route }) => {
       const db = getFirestore();
       const groupsCollection = collection(db, "groups");
       const groupsSnapshot = await getDocs(groupsCollection);
-  
+    
       let loadedGroups = [];
-  
+    
       for (const groupDoc of groupsSnapshot.docs) {
         let groupData = groupDoc.data();
         let chairmanName = "Неизвестен";
-  
+    
         // Взимаме само председателя
         const membersCollection = collection(db, `groups/${groupDoc.id}/members`);
         const membersSnapshot = await getDocs(membersCollection);
-  
+    
         for (const memberDoc of membersSnapshot.docs) {
           const memberData = memberDoc.data();
-          if (memberData.role === "chairman") {
+          console.log("Член:", memberData.firstName, memberData.lastName, "Роля:", memberData.roles);
+  
+          if (Array.isArray(memberData.roles) && memberData.roles.includes("chairman")) {
             chairmanName = `${memberData.firstName} ${memberData.lastName}`;
-            break; // ✅ Излизаме, веднага щом намерим председателя
+            break;
           }
         }
-  
+    
+        console.log(`📌 Група: ${groupData.name} | Председател: ${chairmanName}`);
+    
         loadedGroups.push({
           id: groupDoc.id,
           ...groupData,
-          chairman: chairmanName, // ✅ Винаги ще има само един председател
+          chairman: chairmanName,
         });
       }
-  
+    
       setGroups(loadedGroups);
       setFilteredGroups(loadedGroups);
     };
-  
+    
     fetchGroups();
   }, []);
+  
 
   const handleSearch = (text) => {
     setSearchQuery(text);
@@ -113,7 +118,7 @@ const MainView = ({ navigation, route }) => {
   
     const userData = userSnap.data();
     const { firstName, lastName } = userData; // Вземаме firstName и lastName
-    const userRole = userSnap.exists() ? userData.role : "hunter"; 
+    const userRole = userSnap.exists() ? userData.roles : "hunter"; 
   
     const memberDocRef = doc(firestore, `groups/${group.id}/members/${userId}`);
     const memberSnap = await getDoc(memberDocRef);
@@ -123,7 +128,7 @@ const MainView = ({ navigation, route }) => {
         // Добавяме потребителя в members на избраната група
         await setDoc(memberDocRef, {
           email: userEmail,
-          role: userRole,
+          roles: userRole,
           firstName: firstName, // Добавяме името
           lastName: lastName,   // Добавяме фамилията
         }, { merge: true });

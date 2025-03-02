@@ -6,7 +6,7 @@ import {
   Image,
   ScrollView,
   TextInput,
-  Alert
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -208,8 +208,15 @@ const Profile = ({ route, navigation }) => {
     }
   };
 
+  const weaponList = [
+    { name: 'Blaser', model: 'R8', caliber: '.308 Winchester', type: 'carbine' },
+    { name: 'Tikka', model: 'T3X', caliber: '.30-06 Springfield', type: 'carbine' },
+    { name: 'Benelli', model: 'M2', caliber: '12/70', type: 'shotgun' },
+    { name: 'Beretta', model: 'A400', caliber: '12/76', type: 'shotgun' },
+  ];
+
   const handleAddEquipment = () => {
-    setEquipment([...equipment, { name: '', model: '', caliber: '' }]);
+    setEquipment([...equipment, { name: '', model: '', caliber: '', type: '' }]);
   };
 
   const handleUpdateEquipment = (index, field, value) => {
@@ -385,27 +392,21 @@ const Profile = ({ route, navigation }) => {
             <View key={index}>
               {isEditing ? (
                 <>
-                  <Text>Име на оръжието</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Име"
-                    value={eq.name}
-                    onChangeText={(text) => handleUpdateEquipment(index, 'name', text)}
-                  />
-                  <Text>Модел на оръжието</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Модел"
-                    value={eq.model}
-                    onChangeText={(text) => handleUpdateEquipment(index, 'model', text)}
-                  />
-                  <Text>Калибър на оръжието</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Калибър"
-                    value={eq.caliber}
-                    onChangeText={(text) => handleUpdateEquipment(index, 'caliber', text)}
-                  />
+                  <Text>Избери оръжие</Text>
+                  <Picker
+                    selectedValue={eq.name}
+                    onValueChange={(value) => {
+                      const selectedWeapon = weaponList.find(w => w.name === value);
+                      handleUpdateEquipment(index, 'name', selectedWeapon.name);
+                      handleUpdateEquipment(index, 'model', selectedWeapon.model);
+                      handleUpdateEquipment(index, 'caliber', selectedWeapon.caliber);
+                      handleUpdateEquipment(index, 'type', selectedWeapon.type);
+                    }}
+                  >
+                    {weaponList.map((weapon, i) => (
+                      <Picker.Item key={i} label={`${weapon.name} - ${weapon.model} (${weapon.caliber})`} value={weapon.name} />
+                    ))}
+                  </Picker>
                 </>
               ) : (
                 <Text>{`Име: ${eq.name}\nМодел: ${eq.model}\nКалибър: ${eq.caliber}`}</Text>

@@ -27,9 +27,13 @@ const EventsScreen = ({ route, navigation }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [members, setMembers] = useState([]);
   const [dateError, setDateError] = useState("");
+  const [participantRoles, setParticipantRoles] = useState({});
+  const [selectedWeapons, setSelectedWeapons] = useState({});
+  const availableWeapons = (memberId) => selectedWeapons[memberId] || [];
   const userId = getAuth().currentUser.uid;
 
   const roleTranslations = {
+    admin: "Админ",
     chairman: "Председател",
     secretary: "Секретар",
     member: "Член",
@@ -102,6 +106,13 @@ const EventsScreen = ({ route, navigation }) => {
       Alert.alert('Грешка', 'Моля, попълнете всички полета.');
       return;
     }
+  
+    // Съхраняваме оръжията на участниците
+    const weaponsData = {};
+    participants.forEach(participantId => {
+      weaponsData[participantId] = selectedWeapons[participantId] || [];
+    });
+  
     const newEvent = {
       eventDescription,
       eventDates,
@@ -109,8 +120,10 @@ const EventsScreen = ({ route, navigation }) => {
       location,
       createdBy: userId,
       timeRange: eventType === 'hunt' ? { start: timeRangeStart, end: timeRangeEnd } : null,
-      participants,  // Add selected participants to the event
+      participants,
+      weapons: weaponsData, // Добавяме оръжията в обекта на събитието
     };
+  
     await addDoc(collection(firestore, 'groups', groupId, 'events'), newEvent);
     setModalVisible(false);
     setEventDescription('');
@@ -119,6 +132,7 @@ const EventsScreen = ({ route, navigation }) => {
     setTimeRangeStart(new Date());
     setTimeRangeEnd(new Date());
     setParticipants([]);
+    setSelectedWeapons({});
   };
 
   const confirmDeleteEvent = (eventId) => {
@@ -142,16 +156,46 @@ const EventsScreen = ({ route, navigation }) => {
     setEventDetailsModalVisible(true);
   };
 
-  // Handle participant selection
   const toggleParticipant = (memberId) => {
     setParticipants(prevState => {
       if (prevState.includes(memberId)) {
-        return prevState.filter(id => id !== memberId);  // Deselect participant
+        return prevState.filter(id => id !== memberId);
       } else {
-        return [...prevState, memberId];  // Select participant
+        return [...prevState, memberId];
       }
     });
   };
+
+  useEffect(() => {
+    const fetchWeapons = async () => {
+      try {
+        const weaponsData = {};
+        const weaponPromises = members.map(async (member) => {
+          const userRef = doc(firestore, 'users', member.id);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            const weapons = userSnap.data().equipment || [];
+            weaponsData[member.id] = weapons.map(equip => ({
+              label: `${equip.name} - ${equip.model} (${equip.caliber})`,
+              value: `${equip.name} - ${equip.model} (${equip.caliber})`
+            }));
+          } else {
+            weaponsData[member.id] = [];
+          }
+        });
+  
+        await Promise.all(weaponPromises);
+        setSelectedWeapons(weaponsData);  // Записваме правилно данните
+      } catch (error) {
+        console.error('❌ Грешка при зареждане на оръжия:', error);
+      }
+    };
+  
+    if (members.length > 0) {
+      fetchWeapons();
+    }
+  }, [members]);
+
 
   return (
     <View style={styles.container}>
@@ -162,7 +206,7 @@ const EventsScreen = ({ route, navigation }) => {
         <Text style={styles.headerTitle}>{groupName} - Събития</Text>
       </View>
 
-      {userRole === getHighestRoleTranslation(["chairman"]) && (
+      {userRole === getHighestRoleTranslation(["admin", "chairman"]) && (
         <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.createButton}>
           <Ionicons name="add-circle" size={24} color="white" />
           <Text style={styles.createButtonText}>Създай събитие</Text>
@@ -179,8 +223,8 @@ const EventsScreen = ({ route, navigation }) => {
                 {item.eventDescription.length > 50 ? `${item.eventDescription.substring(0, 50)}...` : item.eventDescription}
               </Text>
 
-              {/* Проверяваме дали потребителят има право да изтрива събития */}
-              {userRole === getHighestRoleTranslation(["chairman"]) && (
+              {/* Проверява дали потребителят има право да изтрива събития */}
+              {userRole === getHighestRoleTranslation(["admin", "chairman"]) && (
                 <TouchableOpacity 
                   onPress={() => confirmDeleteEvent(item.id)} 
                   style={styles.deleteButton}
@@ -197,7 +241,7 @@ const EventsScreen = ({ route, navigation }) => {
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "padding" : "height"} 
-          style={styles.centeredView} // ✅ Използваме стил от stylesheet
+          style={styles.centeredView}
         >
           <View style={styles.modalContainer}>
             <ScrollView 
@@ -213,6 +257,15 @@ const EventsScreen = ({ route, navigation }) => {
                 </Picker>
               </View>
 
+              {eventType === 'hunt' && (
+                <View style={styles.pickerContainer}>
+                  <Picker selectedValue={huntType} onValueChange={(itemValue) => setHuntType(itemValue)} style={styles.picker}>
+                    <Picker.Item label="Лов на едър дивеч" value="bigGame" />
+                    <Picker.Item label="Лов на пернат дивеч" value="birdHunt" />
+                  </Picker>
+                </View>
+              )}
+
               <TextInput 
                 style={styles.input} 
                 placeholder="Описание" 
@@ -222,7 +275,7 @@ const EventsScreen = ({ route, navigation }) => {
               />
 
               <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerButton}>
-                <Text style={styles.datePickerButtonText}>📅 Изберете дати</Text>
+                <Text style={styles.datePickerButtonText}>Изберете дати</Text>
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -269,32 +322,74 @@ const EventsScreen = ({ route, navigation }) => {
                 value={location} 
                 onChangeText={setLocation} 
               />
-
-              {eventType === 'hunt' && (
-                <View style={styles.pickerContainer}>
-                  <Picker selectedValue={huntType} onValueChange={(itemValue) => setHuntType(itemValue)} style={styles.picker}>
-                    <Picker.Item label="Лов на едър дивеч" value="bigGame" />
-                    <Picker.Item label="Лов на пернат дивеч" value="birdHunt" />
-                  </Picker>
-                </View>
-              )}
-
+              <Text style={styles.modalTitle}>Избери участници</Text>
               {members.map((member) => {
                 const highestRole = getHighestRoleTranslation(member.roles);
                 const roleKey = Object.keys(roleTranslations).find(key => roleTranslations[key] === highestRole) || "guest";
+                const hasWeapon = Array.isArray(selectedWeapons[member.id]) && selectedWeapons[member.id].length > 0;
+                const isSelected = participants.includes(member.id);
 
                 return (
-                  <View key={member.id} style={[styles.participantItem, { backgroundColor: roleColors[roleKey] || "#444" }]}>
+                  <View 
+                    key={member.id} 
+                    style={[styles.participantItem, { 
+                      backgroundColor: hasWeapon ? roleColors[roleKey] || "#444" : "#888", 
+                      opacity: hasWeapon ? 1 : 0.5
+                    }]}>
                     <View style={styles.participantInfo}>
                       <Text style={styles.participantName}>{member.firstName || 'Unknown'} {member.lastName || 'Unknown'}</Text>
                       <Text style={styles.participantRole}>{highestRole}</Text>
+
+                      {hasWeapon && (
+                        <TouchableOpacity 
+                          onPress={() => toggleParticipant(member.id)} 
+                          style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
+                          {isSelected && <Ionicons name="checkmark" size={18} color="white" />}
+                        </TouchableOpacity>
+                      )}
+                      {isSelected && eventType === 'hunt' && hasWeapon && (
+                        <>
+                          <Text>Роля в лова</Text>
+                          <Picker
+                            selectedValue={participantRoles[member.id] || ''}
+                            onValueChange={(value) => {
+                              setParticipantRoles(prevRoles => ({ ...prevRoles, [member.id]: value }));
+                              
+                              setSelectedWeapons(prevWeapons => {
+                                const currentWeapons = prevWeapons[member.id] || [];
+                                return { ...prevWeapons, [member.id]: currentWeapons.length ? currentWeapons : [] };
+                              });
+                            }}
+                          >
+                            <Picker.Item label="Избери роля" value="" />
+                            <Picker.Item label="Гонач" value="gonach" />
+                            <Picker.Item label="Вардач" value="vardach" />
+                          </Picker>
+
+                          {participantRoles[member.id] && (
+                            <>
+                              <Text>Избери оръжие</Text>
+                              <Picker
+                                selectedValue={selectedWeapons[member.id]?.[0]?.value || ""}
+                                onValueChange={(value) => {
+                                  if (value) {
+                                    setSelectedWeapons(prevWeapons => ({
+                                      ...prevWeapons,
+                                      [member.id]: [{ label: value, value }]
+                                    }));
+                                  }
+                                }}
+                              >
+                                <Picker.Item label="Избери оръжие" value="" />
+                                {availableWeapons(member.id).map((weapon, i) => (
+                                  <Picker.Item key={i} label={weapon.label} value={weapon.value} />
+                                ))}
+                              </Picker>
+                            </>
+                          )}
+                        </>
+                      )}
                     </View>
-                    <TouchableOpacity 
-                      onPress={() => toggleParticipant(member.id)} 
-                      style={[styles.checkbox, participants.includes(member.id) && styles.checkboxChecked]}
-                    >
-                      {participants.includes(member.id) && <Ionicons name="checkmark" size={18} color="white" />}
-                    </TouchableOpacity>
                   </View>
                 );
               })}
@@ -343,6 +438,8 @@ const EventsScreen = ({ route, navigation }) => {
                 {selectedEvent.participants && selectedEvent.participants.length > 0 ? (
                   selectedEvent.participants.map((participantId) => {
                     const participant = members.find(member => member.id === participantId);
+                    const weapons = selectedEvent.weapons?.[participantId] || []; // Взимаме избраните оръжия за този участник
+
                     return participant ? (
                       <View 
                         key={participant.id} 
@@ -354,6 +451,18 @@ const EventsScreen = ({ route, navigation }) => {
                         <Text style={styles.participantRole}>
                           {getHighestRoleTranslation(participant.roles)}
                         </Text>
+
+                        {/* Ако събитието е ловна хайка и има избрани оръжия, ги показваме */}
+                        {selectedEvent.eventType === 'hunt' && weapons.length > 0 && (
+                          <View style={styles.weaponList}>
+                            <Text style={styles.weaponTitle}>Оръжия:</Text>
+                            {weapons.map((weapon, index) => (
+                              <Text key={index} style={styles.weaponText}>
+                                - {weapon.label}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
                       </View>
                     ) : null;
                   })

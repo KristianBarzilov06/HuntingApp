@@ -9,6 +9,7 @@ import { getAuth } from 'firebase/auth';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio, Video } from 'expo-av';
+import ProfileModal from '../components/ProfileModal';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const ChatScreen = ({ route, navigation }) => {
@@ -23,6 +24,9 @@ const ChatScreen = ({ route, navigation }) => {
   const [recording, setRecording] = useState(null);
   const [playingMessageId, setPlayingMessageId] = useState(null);
   const [userRole, setUserRole] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [timestampsVisible, setTimestampsVisible] = useState({});
   const flatListRef = useRef(null); // Референция за FlatList за автоматично скролване
   const userId = getAuth().currentUser.uid; // Получаване на текущия потребител от Firebase Authentication
 
@@ -45,14 +49,27 @@ const ChatScreen = ({ route, navigation }) => {
         const loadedMessages = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
+          timestamp: doc.data().timestamp?.toDate() || new Date()
         })).sort((a, b) => a.timestamp - b.timestamp);
         setMessages(loadedMessages);
       },
       (error) => console.error("Error fetching messages:", error)
     );
+    return () => unsubscribeMessages();
+  }, [stringGroupId]);
 
-    return () => unsubscribeMessages(); // премахване на слушателя при напускане на компонента
-  }, [stringGroupId]); 
+  const toggleTimestamp = (messageId) => {
+    setTimestampsVisible((prev) => ({
+      ...prev,
+      [messageId]: true
+    }));
+    setTimeout(() => {
+      setTimestampsVisible((prev) => ({
+        ...prev,
+        [messageId]: false
+      }));
+    }, 2000);
+  };
 
   useEffect(() => {
     const unsubscribeUsers = onSnapshot(collection(firestore, 'users'), (snapshot) => {
@@ -188,17 +205,13 @@ const ChatScreen = ({ route, navigation }) => {
       const fileRef = ref(getStorage(), `${folder}/${Date.now()}.${folder === 'videos' ? 'mp4' : 'jpg'}`);
       const uploadRes = await uploadBytes(fileRef, blob);
       let downloadUrl = await getDownloadURL(fileRef);
-  
-      console.log("✅ Uploaded file URL:", downloadUrl);
-  
-      // Проверяваме дали URL е валиден
+    
       if (!downloadUrl || typeof downloadUrl !== "string") {
         console.error("❌ Invalid download URL from Firebase!");
         Alert.alert("Грешка", "Неуспешно качване, няма URL.");
         return;
       }
   
-      // Добавяне на съобщение в Firestore
       await addDoc(collection(firestore, 'groups', stringGroupId, 'messages'), {
         text: '',
         mediaUrl: downloadUrl,
@@ -266,16 +279,13 @@ const ChatScreen = ({ route, navigation }) => {
   
       const messageData = messageDoc.data();
   
-      // Първо изтриваме съобщението от Firestore
       await deleteDoc(messageDocRef);
       console.log("Message deleted from Firestore");
   
-      // Проверяваме дали съобщението има storagePath и дали е валиден
       if (messageData.storagePath && typeof messageData.storagePath === 'string') {
         const storageRef = ref(getStorage(), messageData.storagePath);
         console.log("Deleting file at:", messageData.storagePath);
   
-        // Изтриваме файла от Firebase Storage
         await deleteObject(storageRef);
         console.log("File deleted successfully from Firebase Storage");
       } else {
@@ -288,75 +298,82 @@ const ChatScreen = ({ route, navigation }) => {
     }
   };
 
-  const renderMessage = ({ item }) => {
+  const renderMessage = ({ item, index }) => {
     const isMyMessage = item.userId === userId;
     const profilePicture = profilePictures[item.userId];
-  
-    // Логове за проверка на mediaUrl и mediaType
-    console.log("🔍 Rendering message:", item);
-    if (item.mediaUrl) {
-      console.log(`🎥 Media URL: ${item.mediaUrl}, Type: ${item.mediaType}`);
-    }
-  
+    const isLastMessageOfBlock = index === messages.length - 1 || messages[index + 1]?.userId !== item.userId;
+
     return (
-      <TouchableOpacity 
-        onLongPress={() => handleLongPress(item.id)} 
-        style={styles.messageContainer}
-      >
-        {!isMyMessage && (
-          <View style={styles.iconContainer}>
-            {profilePicture ? (
-              <Image source={{ uri: profilePicture }} style={styles.profileIcon} />
-            ) : (
-              <Ionicons name="person-circle-outline" size={30} color="black" />
-            )}
-          </View>
-        )}
-  
-        <View style={[styles.messageItem, isMyMessage ? styles.myMessage : styles.otherMessage]}>
-          {/* Валидация за различните видове медии */}
-          {item.mediaType === "audio" && item.mediaUrl ? (
-            <TouchableOpacity onPress={() => playAudio(item.mediaUrl, item.id)}>
-              <Ionicons 
-                name={playingMessageId === item.id ? "pause-circle" : "play-circle"} 
-                size={40} 
-                color="black" 
-              />
+      <>
+        <View style={[styles.messageContainer, isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer]}>
+          {isLastMessageOfBlock && !isMyMessage && item.userId && (
+            <TouchableOpacity 
+              onPress={() => {
+                if (selectedUserId !== item.userId) {
+                  setSelectedUserId(item.userId); 
+                  setModalVisible(true);
+                }
+              }} 
+              style={styles.profileIconContainer} 
+              activeOpacity={0.7}
+            >
+              {profilePicture ? (
+                <Image source={{ uri: profilePicture }} style={styles.profileIcon} />
+              ) : (
+                <Ionicons name="person-circle-outline" size={30} color="black" />
+              )}
             </TouchableOpacity>
-          ) : item.mediaType === "videos" && item.mediaUrl ? (
-            <>
-              
+          )}
+          
+          <TouchableOpacity 
+            onLongPress={() => handleLongPress(item.id)}
+            onPress={() => toggleTimestamp(item.id)}
+            style={[styles.messageContent, isMyMessage ? styles.myMessage : styles.otherMessage]}
+          >
+            {timestampsVisible[item.id] && (
+              <Text style={styles.timestamp}>
+                {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
+            {item.mediaType === "audio" && item.mediaUrl ? (
+              <TouchableOpacity onPress={() => playAudio(item.mediaUrl, item.id)}>
+                <Ionicons 
+                  name={playingMessageId === item.id ? "pause-circle" : "play-circle"} 
+                  size={40} 
+                  color="black" 
+                />
+              </TouchableOpacity>
+            ) : item.mediaType === "videos" && item.mediaUrl ? (
               <Video
                 source={{ uri: item.mediaUrl }}
                 style={styles.messageVideo}
                 useNativeControls
-                shouldPlay={false} // Не стартираме автоматично
+                shouldPlay={false} 
                 resizeMode="contain"
                 isLooping={false}
-                onLoadStart={() => console.log("📡 Loading video...")}
-                onLoad={(status) => console.log("✅ Video loaded:", status)}
-                onError={(error) => console.error("❌ Video load error:", error)}
               />
-            </>
-          ) : item.mediaUrl ? (
-            <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
-          ) : (
-            <Text style={styles.messageText}>{item.text}</Text>
-          )}
-        </View>
-  
-        {isMyMessage && (
-          <View style={styles.iconContainer}>
-            {profilePictures[userId] ? (
-              <Image source={{ uri: profilePictures[userId] }} style={styles.profileIcon} />
+            ) : item.mediaUrl ? (
+              <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
             ) : (
-              <Ionicons name="person-circle-outline" size={30} color="black" />
+              <Text style={styles.messageText}>{item.text}</Text>
             )}
-          </View>
+          </TouchableOpacity>
+        </View>
+
+        {modalVisible && selectedUserId && selectedUserId !== userId && (
+          <ProfileModal
+            userId={selectedUserId}
+            visible={modalVisible}
+            onClose={() => {
+              setModalVisible(false);
+              setSelectedUserId(null);
+            }}
+          />
         )}
-      </TouchableOpacity>
+      </>
     );
   };
+  
   const toggleMenu = () => {
     setMenuVisible(prev => !prev);
     setMenuRotation(prev => (prev === 0 ? 90 : 0));
@@ -409,11 +426,11 @@ const ChatScreen = ({ route, navigation }) => {
 
           {userRole === "admin" && (
             <>
-              <TouchableOpacity onPress={() => navigation.navigate('Main')}>
-                <Text style={styles.menuItem}>Обратно към Main</Text>
-              </TouchableOpacity>
               <TouchableOpacity onPress={() => navigation.navigate('AdminPanel')}>
                 <Text style={styles.menuItem}>AdminPanel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('Main')}>
+                <Text style={styles.menuItem}>Обратно към Main</Text>
               </TouchableOpacity>
             </>
           )}
@@ -429,7 +446,6 @@ const ChatScreen = ({ route, navigation }) => {
         style={styles.messageList}
         onContentSizeChange={scrollToBottom}
       />
-
       <View style={styles.inputContainer}>
 
         <TouchableOpacity onPress={uploadMediaFromGallery}>
