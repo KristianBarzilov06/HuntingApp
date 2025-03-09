@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, Image, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PropTypes } from 'prop-types';
 import styles from '../src/styles/ChatStyles';
@@ -27,6 +27,11 @@ const ChatScreen = ({ route, navigation }) => {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [timestampsVisible, setTimestampsVisible] = useState({});
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [fullScreenVisible, setFullScreenVisible] = useState(false);
+  const [fullScreenMedia, setFullScreenMedia] = useState({ url: null, type: null });
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [disableAutoScroll, setDisableAutoScroll] = useState(false);
   const flatListRef = useRef(null); // Референция за FlatList за автоматично скролване
   const userId = getAuth().currentUser.uid; // Получаване на текущия потребител от Firebase Authentication
 
@@ -61,12 +66,13 @@ const ChatScreen = ({ route, navigation }) => {
   }, [stringGroupId]);
 
   const toggleTimestamp = (messageId) => {
-    setTimestampsVisible((prev) => ({
+    setShouldAutoScroll(false); // НЕ искаме да скролваме
+    setTimestampsVisible(prev => ({
       ...prev,
       [messageId]: true
     }));
     setTimeout(() => {
-      setTimestampsVisible((prev) => ({
+      setTimestampsVisible(prev => ({
         ...prev,
         [messageId]: false
       }));
@@ -92,7 +98,7 @@ const ChatScreen = ({ route, navigation }) => {
 
   const sendMessage = async () => {
     if (newMessage.trim() === '') return;
-
+    setShouldAutoScroll(true);
     const messageData = {
       text: newMessage,
       timestamp: new Date(),
@@ -300,23 +306,74 @@ const ChatScreen = ({ route, navigation }) => {
     }
   };
 
+  const openFullScreenMedia = (url, type) => {
+    setFullScreenMedia({ url, type });
+    setFullScreenVisible(true);
+  };
+
+  const closeFullScreenMedia = () => {
+    setDisableAutoScroll(true);
+    setFullScreenVisible(false);
+    setFullScreenMedia({ url: null, type: null });
+    setTimeout(() => {
+      flatListRef.current?.scrollToOffset({ offset: scrollOffset, animated: false });
+      setDisableAutoScroll(false);
+    }, 200);
+  };
+
   const renderMessage = ({ item, index }) => {
     const isMyMessage = item.userId === userId;
     const profilePicture = profilePictures[item.userId];
-    const isLastMessageOfBlock = index === messages.length - 1 || messages[index + 1]?.userId !== item.userId;
-
+    const isLastMessageOfBlock =
+      index === messages.length - 1 || messages[index + 1]?.userId !== item.userId;
+  
+    // Ако имаме активен fullScreenVisible
+    if (fullScreenVisible && fullScreenMedia.url) {
+      return (
+        <Modal visible={true} transparent={true} onRequestClose={closeFullScreenMedia}>
+          <View style={styles.fullScreenContainer}>
+            {fullScreenMedia.type === 'videos' ? (
+              <Video
+                source={{ uri: fullScreenMedia.url }}
+                style={styles.fullScreenVideo}
+                useNativeControls
+                resizeMode="contain"
+                shouldPlay
+              />
+            ) : (
+              <Image
+                source={{ uri: fullScreenMedia.url }}
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+            )}
+            <TouchableOpacity onPress={closeFullScreenMedia} style={styles.closeButton}>
+              <Ionicons name="close" size={36} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      );
+    }
+  
     return (
       <>
-        <View style={[styles.messageContainer, isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer]}>
+        {/* Контейнерът на съобщението (с 5px разстояние) */}
+        <View
+          style={[
+            styles.messageContainer,
+            isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer
+          ]}
+        >
+          {/* Профилна снимка (ако е последното съобщение от този потребител и не е наше) */}
           {isLastMessageOfBlock && !isMyMessage && item.userId && (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 if (selectedUserId !== item.userId) {
-                  setSelectedUserId(item.userId); 
+                  setSelectedUserId(item.userId);
                   setModalVisible(true);
                 }
-              }} 
-              style={styles.profileIconContainer} 
+              }}
+              style={styles.profileIconContainer}
               activeOpacity={0.7}
             >
               {profilePicture ? (
@@ -326,42 +383,76 @@ const ChatScreen = ({ route, navigation }) => {
               )}
             </TouchableOpacity>
           )}
-          
-          <TouchableOpacity 
-            onLongPress={() => handleLongPress(item.id)}
-            onPress={() => toggleTimestamp(item.id)}
-            style={[styles.messageContent, isMyMessage ? styles.myMessage : styles.otherMessage]}
-          >
-            {timestampsVisible[item.id] && (
-              <Text style={styles.timestamp}>
-                {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            )}
-            {item.mediaType === "audio" && item.mediaUrl ? (
+  
+          {/* Съдържанието на съобщението */}
+          {item.mediaType === 'audio' && item.mediaUrl ? (
+            // --- АУДИО ---
+            <TouchableOpacity
+              onLongPress={() => handleLongPress(item.id)}
+              style={[styles.messageContent, isMyMessage ? styles.myMessage : styles.otherMessage]}
+            >
               <TouchableOpacity onPress={() => playAudio(item.mediaUrl, item.id)}>
-                <Ionicons 
-                  name={playingMessageId === item.id ? "pause-circle" : "play-circle"} 
-                  size={40} 
-                  color="black" 
+                <Ionicons
+                  name={playingMessageId === item.id ? 'pause-circle' : 'play-circle'}
+                  size={40}
+                  color="black"
                 />
               </TouchableOpacity>
-            ) : item.mediaType === "videos" && item.mediaUrl ? (
+            </TouchableOpacity>
+          ) : item.mediaType === 'videos' && item.mediaUrl ? (
+            // --- ВИДЕО ---
+            <TouchableOpacity
+              onPress={() => openFullScreenMedia(item.mediaUrl, 'videos')}
+              onLongPress={() => handleLongPress(item.id)}
+              style={[
+                styles.messageMediaContainer,
+                !isMyMessage && { marginLeft: 40 } // добавя отстояние за чужди съобщения
+              ]}
+            >
               <Video
                 source={{ uri: item.mediaUrl }}
                 style={styles.messageVideo}
-                useNativeControls
-                shouldPlay={false} 
                 resizeMode="contain"
-                isLooping={false}
+                useNativeControls
               />
-            ) : item.mediaUrl ? (
-              <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} />
-            ) : (
+            </TouchableOpacity>
+          ) : item.mediaUrl ? (
+            // --- ИЗОБРАЖЕНИЕ ---
+            <TouchableOpacity
+              onPress={() => openFullScreenMedia(item.mediaUrl, 'image')}
+              onLongPress={() => handleLongPress(item.id)}
+              style={[
+                styles.messageMediaContainer,
+                !isMyMessage && { marginLeft: 40 } // добавя отстояние за чужди съобщения
+              ]}
+            >
+              <Image
+                source={{ uri: item.mediaUrl }}
+                style={styles.messageImage}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          ) : (
+            // --- ТЕКСТ ---
+            <TouchableOpacity
+              onPress={() => toggleTimestamp(item.id)}
+              onLongPress={() => handleLongPress(item.id)}
+              style={[styles.messageContent, isMyMessage ? styles.myMessage : styles.otherMessage]}
+            >
+              {timestampsVisible[item.id] && (
+                <Text style={styles.timestamp}>
+                  {new Date(item.timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </Text>
+              )}
               <Text style={styles.messageText}>{item.text}</Text>
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
         </View>
-
+  
+        {/* Модал за профилната снимка при клик (ако не е наш userId) */}
         {modalVisible && selectedUserId && selectedUserId !== userId && (
           <ProfileModal
             userId={selectedUserId}
@@ -374,7 +465,8 @@ const ChatScreen = ({ route, navigation }) => {
         )}
       </>
     );
-  };
+  };  
+  
   
   const toggleMenu = () => {
     setMenuVisible(prev => !prev);
@@ -470,27 +562,27 @@ const ChatScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu} style={{ marginTop: 30 }}>
+        {/* Бургер меню вляво */}
+        <TouchableOpacity onPress={toggleMenu} style={styles.headerIcon}>
           <Ionicons 
             name="menu" 
-            size={24} 
+            size={28} 
             color="white" 
-            style={{ transform: [{ rotate: `${menuRotation}deg` }] }} 
+            style={{ transform: [{ rotate: `${menuRotation}deg` }] }}
           />
         </TouchableOpacity>
+
+        {/* Име на групата - центрирано и по-голямо */}
         <TouchableOpacity 
-          style={styles.groupLabel}
-          onPress={() => {
-            navigation.navigate("GroupOverview", {
-              groupId,
-              groupName,
-            });
-          }}
+          onPress={() => navigation.navigate("GroupOverview", { groupId, groupName })}
+          style={styles.headerTitleContainer}
         >
-          <Text style={styles.groupName}>{groupName}</Text>
+          <Text style={styles.headerTitle}>{groupName}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Main')} style={{ marginLeft: 'auto', marginRight: 15, marginTop: 30 }}>
-        <Ionicons name="arrow-back" size={24} color="white" />
+
+        {/* Бутон за връщане (arrow) вдясно */}
+        <TouchableOpacity onPress={() => navigation.navigate('Main')} style={styles.headerIcon}>
+          <Ionicons name="arrow-back" size={28} color="white" />
         </TouchableOpacity>
       </View>
 
@@ -557,15 +649,31 @@ const ChatScreen = ({ route, navigation }) => {
         </View>
       )}
 
-
       <FlatList
         ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={renderMessage}
         style={styles.messageList}
-        onContentSizeChange={scrollToBottom}
+        onContentSizeChange={() => {
+          if (shouldAutoScroll && !disableAutoScroll) {
+            scrollToBottom();
+          }
+        }}
+        onScroll={(event) => {
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          // Запазване на текущия offset
+          setScrollOffset(contentOffset.y);
+          // Ако сме на 50px от дъното, активираме auto scroll
+          if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 50) {
+            setShouldAutoScroll(true);
+          } else {
+            setShouldAutoScroll(false);
+          }
+        }}
+        scrollEventThrottle={16}
       />
+
       <View style={styles.inputContainer}>
 
         <TouchableOpacity onPress={uploadMediaFromGallery}>

@@ -3,29 +3,39 @@ import { StyleSheet } from 'react-native';
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#3A3F32', // Тъмно зелено-сив фон
+    backgroundColor: '#3A3F32',
     paddingLeft: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A3B1F', // Тъмно-зеленикаво-кафяв
-    paddingBottom: 20,
-    padding: 15,
+    backgroundColor: '#2A3B1F',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingTop: 35,
     zIndex: 9,
   },
+  headerIcon: {
+    padding: 5,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
     color: 'white',
-    fontSize: 20,
-    marginLeft: 10,
-    marginTop: 30,
+    textAlign: 'center',
   },
   dropdownMenu: {
     position: 'absolute',
     top: 92,
     left: 10,
     right: 10,
-    backgroundColor: '#4C6139', // По-наситен тъмнозелен оттенък
+    backgroundColor: '#4C6139',
     borderRadius: 20,
     paddingVertical: 12,
     paddingHorizontal: 8,
@@ -43,7 +53,7 @@ export default StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 15,
     marginVertical: 5,
-    backgroundColor: '#5A773F', // Малко по-светъл тон за контраст
+    backgroundColor: '#5A773F',
   },
   menuText: {
     fontSize: 16,
@@ -51,45 +61,26 @@ export default StyleSheet.create({
     marginLeft: 15,
     flex: 1,
   },
-  menuIcon: {
-    width: 30,
-    height: 30,
-  },
-  unreadIndicator: {
-    backgroundColor: '#D9534F', // Червено за индикатора на непрочетени съобщения
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  unreadText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+
   messageList: {
     flex: 1,
-    padding: 0,
-    marginBottom:10,
+    marginBottom: 10,
   },
   messageContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 10, // Увеличено разстояние между съобщенията и inputContainer
+    // Добавяме 5px разстояние между всяко съобщение
+    marginBottom: 5,
   },
   myMessageContainer: {
-    flexDirection: 'row-reverse', // Моите съобщения отдясно
+    flexDirection: 'row-reverse',
     alignItems: 'flex-end',
-    marginBottom: 1,
-    marginRight: 10, // Разстояние от ръба на екрана
+    marginRight: 10,
   },
   otherMessageContainer: {
-    flexDirection: 'row', // Съобщенията на другите отляво
+    flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 1,
-    marginLeft: 10, // Разстояние от ръба на екрана спрямо профилната снимка
+    marginLeft: 10,
   },
   spacedMessages: {
     marginBottom: 10, // 10px разстояние между различни потребители
@@ -98,16 +89,10 @@ export default StyleSheet.create({
     padding: 10,
     borderRadius: 15,
     backgroundColor: 'transparent',
-    flexShrink: 1, // Ограничаваме ширината според съдържанието
-  },
-  messageItem: {
-    padding: 8,
-    borderRadius: 15,
-    marginLeft: -10, // Намаляване на разстоянието между съобщението и профилната снимка
+    flexShrink: 1,
   },
   myMessage: {
-    backgroundColor: '#5A773F', // Тъмно зелено
-    alignSelf: 'flex-end',
+    backgroundColor: '#5A773F',
     color: 'white',
     borderTopLeftRadius: 15,
     borderTopRightRadius: 5,
@@ -117,8 +102,7 @@ export default StyleSheet.create({
     maxWidth: '70%',
   },
   otherMessage: {
-    backgroundColor: '#857550', // Кафяво-зелен оттенък
-    alignSelf: 'flex-start',
+    backgroundColor: '#857550',
     color: 'white',
     borderTopLeftRadius: 5,
     borderTopRightRadius: 15,
@@ -126,18 +110,39 @@ export default StyleSheet.create({
     borderBottomRightRadius: 15,
     padding: 10,
     maxWidth: '70%',
-    marginLeft: 40, // Намаляване на разстоянието, за да се доближи до профилната снимка
+    marginLeft: 40,
   },
+  messageMediaContainer: {
+    marginVertical: 2,
+    borderWidth: 2,
+    borderColor: '#5A773F',
+    borderRadius: 20,
+    overflow: 'hidden',
+    width: 250,
+    height: 250,
+    backgroundColor: 'black', // добавен черен фон
+  },
+  messageImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  messageVideo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  
   messageWithProfile: {
     marginLeft: 40, // Подравняване на съобщенията с профилна снимка
-  },
+  }, 
   profileIconContainer: {
     width: 0,
     height: 35,
     borderRadius: 17.5,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: -10, // Намаляване на разстоянието от съобщението
+    marginRight: -10,
     marginLeft: 10,
   },
   profileIcon: {
@@ -149,25 +154,15 @@ export default StyleSheet.create({
     fontSize: 15,
     color: 'white',
   },
-  messageImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 10,
-  },
-  messageVideo: {
-    width: 200,
-    height: 200,
-    borderRadius: 10,
-  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8, // Добавяне на вертикален padding
+    paddingVertical: 8,
     backgroundColor: '#2A3B1F',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingHorizontal: 15, // Добавяне на хоризонтално разстояние
-    justifyContent: 'space-evenly', // Равномерно разпределение на елементите
+    paddingHorizontal: 15,
+    justifyContent: 'space-evenly',
   },
   input: {
     flex: 1,
@@ -178,7 +173,7 @@ export default StyleSheet.create({
     marginHorizontal: 8,
     maxWidth: '65%',
     color: 'white',
-    fontSize: 14, // Намаляване на размера на текста
+    fontSize: 14,
   },
   icon: {
     marginHorizontal: 8,
@@ -233,5 +228,24 @@ export default StyleSheet.create({
     fontSize: 12,
     color: 'white',
     marginLeft: 4,
+  },
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '80%',
+  },
+  fullScreenVideo: {
+    width: '100%',
+    height: '80%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
   },
 });
