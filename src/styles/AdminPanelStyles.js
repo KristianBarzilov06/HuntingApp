@@ -439,4 +439,22 @@ roleTextSelected: {
   fontWeight: "bold",
   color: "white",
 },
+kickButton: {
+  backgroundColor: "#b71c1c", // Наситен червен фон
+  paddingVertical: 10,
+  paddingHorizontal: 15,
+  borderRadius: 8,
+  alignItems: "center",
+  width: "80%",
+  alignSelf: "center",
+  marginTop: 10,
+  borderWidth: 1,
+  borderColor: "#d32f2f",
+},
+kickButtonText: {
+  color: "white",
+  fontSize: 16,
+  fontWeight: "bold",
+},
+
 });

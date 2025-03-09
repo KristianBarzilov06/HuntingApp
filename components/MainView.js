@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
-import { collection, doc, setDoc, getDocs, getFirestore,getDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getFirestore,getDoc, updateDoc, setDoc} from 'firebase/firestore';
 import { app } from '../firebaseConfig';
 import { getAuth } from '@firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,53 +12,149 @@ const MainView = ({ navigation, route }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [groups, setGroups] = useState([]);
   const [filteredGroups, setFilteredGroups] = useState([]);
-  const [groupMemberships, setGroupMemberships] = useState({});
-  
+  const [userRoles, setUserRoles] = useState([]);
   const firestore = getFirestore(app);
   const auth = getAuth(app);
-  
+
+  const userId = auth.currentUser?.uid;
+
   useEffect(() => {
     const fetchGroups = async () => {
       const db = getFirestore();
       const groupsCollection = collection(db, "groups");
       const groupsSnapshot = await getDocs(groupsCollection);
-    
       let loadedGroups = [];
-    
+      
       for (const groupDoc of groupsSnapshot.docs) {
         let groupData = groupDoc.data();
         let chairmanName = "Неизвестен";
-    
-        // Взимаме само председателя
+        let isUserMember = false;
+        let isGuest = false;
+  
         const membersCollection = collection(db, `groups/${groupDoc.id}/members`);
         const membersSnapshot = await getDocs(membersCollection);
-    
+  
         for (const memberDoc of membersSnapshot.docs) {
           const memberData = memberDoc.data();
-          console.log("Член:", memberData.firstName, memberData.lastName, "Роля:", memberData.roles);
-  
           if (Array.isArray(memberData.roles) && memberData.roles.includes("chairman")) {
             chairmanName = `${memberData.firstName} ${memberData.lastName}`;
-            break;
+          }
+          if (memberDoc.id === userId) {
+            if (memberData.roles.includes("member")) {
+              isUserMember = true;
+            } else if (memberData.roles.some(role => role.startsWith("guest("))) {
+              isGuest = true;
+            }
           }
         }
-    
-        console.log(`📌 Група: ${groupData.name} | Председател: ${chairmanName}`);
-    
+  
         loadedGroups.push({
           id: groupDoc.id,
           ...groupData,
           chairman: chairmanName,
+          isMember: isUserMember,
+          isGuest: isGuest
         });
       }
-    
       setGroups(loadedGroups);
       setFilteredGroups(loadedGroups);
     };
-    
-    fetchGroups();
-  }, []);
   
+    const fetchUserRoles = async () => {
+      if (!userId) return;
+      const userRef = doc(firestore, `users/${userId}`);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+          const userData = userSnap.data();
+          setUserRoles(userData.roles || []);
+      }
+  };
+  
+    fetchGroups();
+    fetchUserRoles();
+  }, [userId, route.params?.refresh]);  // ✅ Автоматично обновяване при refresh!
+  
+  
+  const handleJoinGroup = async (groupId, groupName) => {
+    try {
+        if (!userId) {
+            Alert.alert("Грешка", "Няма идентификатор на потребителя.");
+            return;
+        }
+
+        const userRef = doc(firestore, `users/${userId}`);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            Alert.alert("Грешка", "Потребителят не съществува.");
+            return;
+        }
+
+        const userData = userSnap.data();
+        let currentRoles = userData.roles || [];
+        let userGroups = userData.groups || [];
+
+        const isAlreadyMember = userGroups.length > 0; // Вече е член на поне една група?
+        const isAlreadyGuest = currentRoles.includes(`guest{${groupName}}`);
+        const isAlreadyMemberInThisGroup = userGroups.includes(groupId);
+
+        // ❌ Ако вече е член на тази група → директно го пращаме в главния чат
+        if (isAlreadyMemberInThisGroup) {
+            navigation.replace('ChatScreen', { groupId, groupName });
+            return;
+        }
+
+        // ❌ Ако вече е гост в тази група → директно го пращаме в чата за гости
+        if (isAlreadyGuest) {
+            navigation.replace('GuestChatScreen', { groupId, groupName });
+            return;
+        }
+
+        let updatedRoles = [...currentRoles];
+        let updatedGroups = [...userGroups];
+
+        if (!isAlreadyMember) {
+            // 🟢 **Потребителят няма група → става член (member)**
+            if (!updatedRoles.includes("hunter")) {
+                updatedRoles.push("hunter"); // Добавяме само ако още го няма
+            }
+            updatedRoles.push("member");
+            updatedGroups.push(groupId);
+        } else {
+            // 🟡 **Потребителят вече има група → присъединява се като гост**
+            updatedRoles.push(`guest{${groupName}}`);
+        }
+
+        // 🔹 Обновяваме `users/{userId}`
+        await updateDoc(userRef, {
+            roles: updatedRoles,
+            groups: updatedGroups,
+        });
+
+        // 🔹 Добавяме потребителя в `groups/{groupId}/members/{userId}`
+        const memberRef = doc(firestore, `groups/${groupId}/members/${userId}`);
+        await setDoc(memberRef, {
+            firstName: userData.firstName || '',
+            lastName: userData.lastName || '',
+            email: userData.email || '',
+            roles: isAlreadyMember ? [`guest{${groupName}}`] : ["member"],
+        }, { merge: true });
+
+        // 🟢 Обновяваме UI и навигираме потребителя
+        Alert.alert("Успех", `Присъединихте се успешно към ${groupName} като ${isAlreadyMember ? "гост" : "член"}.`);
+
+        if (!isAlreadyMember) {
+            navigation.replace('ChatScreen', { groupId, groupName });
+        } else {
+            navigation.replace('GuestChatScreen', { groupId, groupName });
+        }
+
+    } catch (error) {
+        console.error("❌ Грешка при присъединяване:", error);
+        Alert.alert("Грешка", "Неуспешно присъединяване към групата.");
+    }
+};
+
 
   const handleSearch = (text) => {
     setSearchQuery(text);
@@ -81,81 +177,6 @@ const MainView = ({ navigation, route }) => {
     setFilteredGroups(groups);
   };
 
-  const checkUserGroupMembership = async (groupId) => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) return;
-    
-    const membersRef = collection(firestore, `groups/${groupId}/members`);
-    const memberQuery = await getDocs(membersRef);
-
-    let isMember = false;
-    memberQuery.forEach(doc => {
-      if (doc.id === userId) isMember = true;
-    });
-
-    setGroupMemberships(prevState => ({
-      ...prevState,
-      [groupId]: isMember ? 'Влизане' : 'Присъедини се'
-    }));
-  };
-
-  useEffect(() => {
-    groups.forEach(group => checkUserGroupMembership(group.id));
-  }, [groups, userEmail]);
-
-  const joinOrEnterGroup = async (group) => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) return;
-  
-    const userEmail = auth.currentUser.email;
-    const userRef = doc(firestore, `users/${userId}`);
-    const userSnap = await getDoc(userRef);
-  
-    if (!userSnap.exists()) {
-      Alert.alert("Грешка", "Потребителят не беше намерен.");
-      return;
-    }
-  
-    const userData = userSnap.data();
-    const { firstName, lastName } = userData; // Вземаме firstName и lastName
-    const userRole = userSnap.exists() ? userData.roles : "hunter"; 
-  
-    const memberDocRef = doc(firestore, `groups/${group.id}/members/${userId}`);
-    const memberSnap = await getDoc(memberDocRef);
-    
-    if (!memberSnap.exists()) {
-      try {
-        // Добавяме потребителя в members на избраната група
-        await setDoc(memberDocRef, {
-          email: userEmail,
-          roles: userRole,
-          firstName: firstName, // Добавяме името
-          lastName: lastName,   // Добавяме фамилията
-        }, { merge: true });
-  
-        // Също така записваме groupId в основния документ на потребителя
-        await setDoc(userRef, { groupId: group.id }, { merge: true });
-  
-        setGroupMemberships(prev => ({
-          ...prev,
-          [group.id]: "Влизане"
-        }));
-  
-        navigation.replace('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
-      } catch (error) {
-        console.error('Грешка при присъединяване към група:', error);
-      }
-    } else {
-      setGroupMemberships(prev => ({
-        ...prev,
-        [group.id]: "Влизане"
-      }));
-      navigation.replace('ChatScreen', { groupId: group.id, groupName: group.name, userEmail });
-    }
-  };
-  
-  
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -176,19 +197,43 @@ const MainView = ({ navigation, route }) => {
       </View>
       
       <View style={styles.listContainer}>
-        <ScrollView style={styles.groupList}>
-          {filteredGroups.map(group => (
+      <ScrollView style={styles.groupList}>
+        {filteredGroups.map(group => {
+          const isGuest = userRoles.some(role => role === `guest{${group.name}}`);
+
+          return (
             <View key={group.id} style={styles.groupItem}>
               <View style={styles.groupDetails}>
                 <Text style={styles.groupName}>{group.name}</Text>
                 <Text style={styles.groupChairman}>Председател: {group.chairman || 'Неизвестен'}</Text>
               </View>
-              <TouchableOpacity style={styles.joinButton} onPress={() => joinOrEnterGroup(group)}>
-                <Text style={styles.joinButtonText}>{groupMemberships[group.id] || 'Присъедини се'}</Text>
-              </TouchableOpacity>
+              
+              {group.isMember ? (
+                <TouchableOpacity 
+                  style={[styles.joinButton, { backgroundColor: '#2A7221' }]} 
+                  onPress={() => navigation.replace('ChatScreen', { groupId: group.id, groupName: group.name, userEmail })}
+                >
+                  <Text style={styles.joinButtonText}>Влизане</Text>
+                </TouchableOpacity>
+              ) : isGuest ? (
+                <TouchableOpacity 
+                  style={[styles.joinButton, { backgroundColor: '#555' }]} 
+                  onPress={() => navigation.replace('GuestChatScreen', { groupId: group.id, groupName: group.name, userEmail })}
+                >
+                  <Text style={styles.joinButtonText}>Влизане като гост</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.joinButton, { backgroundColor: '#007BFF' }]} 
+                  onPress={() => handleJoinGroup(group.id, group.name)}
+                >
+                  <Text style={styles.joinButtonText}>Присъедини се</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          ))}
-        </ScrollView>
+          );
+        })}
+      </ScrollView>
       </View>
 
       {searchQuery.length > 0 && (
@@ -208,6 +253,7 @@ MainView.propTypes = {
   route: PropTypes.shape({
     params: PropTypes.shape({
       userEmail: PropTypes.string,
+      refresh: PropTypes.bool,
     }),
   }).isRequired,
 };

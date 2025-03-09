@@ -6,9 +6,11 @@ import RegisterView from './components/RegisterView';
 import MainView from './components/MainView';
 import Profile from './components/Profile';
 import ChatScreen from './components/ChatScreen';
+import GuestChatScreen from './components/GuestChatScreen';
 import LoadingScreen from './components/LoadingScreen';
 import AdminPanel from './components/AdminPanel';
 import EventsScreen from './components/EventsScreen';
+import GroupOverview from './components/GroupOverview';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,8 +32,10 @@ const App = () => {
         <Stack.Screen name="Main" component={MainView} options={{ headerShown: false }} />
         <Stack.Screen name="Profile" component={Profile} options={{ headerShown: false }} />
         <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="GuestChatScreen" component={GuestChatScreen} options={{ headerShown: false }} /> 
         <Stack.Screen name="AdminPanel" component={AdminPanel} options={{ headerShown: false }} />
         <Stack.Screen name="EventsScreen" component={EventsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="GroupOverview" component={GroupOverview} options={{ headerShown: false }}/>
       </Stack.Navigator>
     </NavigationContainer>
   );

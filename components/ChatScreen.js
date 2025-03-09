@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PropTypes } from 'prop-types';
 import styles from '../src/styles/ChatStyles';
 import { firestore } from '../firebaseConfig';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, arrayRemove } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,7 +23,7 @@ const ChatScreen = ({ route, navigation }) => {
   const [menuRotation, setMenuRotation] = useState(0); // Ротация за анимация на менюто
   const [recording, setRecording] = useState(null);
   const [playingMessageId, setPlayingMessageId] = useState(null);
-  const [userRole, setUserRole] = useState("");
+  const [userRoles, setUserRoles] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [timestampsVisible, setTimestampsVisible] = useState({});
@@ -31,14 +31,16 @@ const ChatScreen = ({ route, navigation }) => {
   const userId = getAuth().currentUser.uid; // Получаване на текущия потребител от Firebase Authentication
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      const userRef = doc(firestore, 'users', userId);
+    const fetchUserRoles = async () => {
+      if (!userId) return;
+      const userRef = doc(firestore, `users/${userId}`);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
-        setUserRole(userSnap.data().role || "hunter"); // Ако няма роля, по подразбиране е "hunter"
+          const userData = userSnap.data();
+          setUserRoles(userData.roles || []);
       }
-    };
-    fetchUserRole();
+  };  
+    fetchUserRoles();
   }, [userId]);
 
   // Зареждане на съобщенията в реално време
@@ -383,6 +385,88 @@ const ChatScreen = ({ route, navigation }) => {
     flatListRef.current?.scrollToEnd({ animated: true });
   };
 
+  const leaveGroup = async () => {
+    Alert.alert(
+      "Напускане на групата",
+      "Сигурни ли сте, че искате да напуснете тази група?",
+      [
+        {
+          text: "Отказ",
+          style: "cancel",
+        },
+        {
+          text: "Напусни",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (!groupId || typeof groupId !== "string") {
+                console.error("❌ Грешка: groupId не е валиден", groupId);
+                Alert.alert("Грешка", "Групата не може да бъде намерена.");
+                return;
+              }
+
+              const userRef = doc(firestore, `users/${userId}`);
+              const memberRef = doc(firestore, `groups/${groupId}/members/${userId}`);
+              const groupRef = doc(firestore, `groups/${groupId}`);
+              const userSnap = await getDoc(userRef);
+              
+              if (userSnap.exists()) {
+                const userData = userSnap.data();
+                const currentRoles = userData.roles || [];
+
+                let updatedRoles = [...currentRoles];
+                let isMember = currentRoles.includes("member");
+                let isGuestInGroup = currentRoles.includes(`guest{${groupName}}`);
+
+                if (isGuestInGroup) {
+                  // 🟢 Ако напуска като гост, премахваме само тази гост-роля
+                  updatedRoles = currentRoles.filter(role => role !== `guest{${groupName}}`);
+                } else if (isMember) {
+                  // 🔴 Ако напуска като член, премахваме всички роли освен "hunter" и запазваме guest{} ролите
+                  updatedRoles = currentRoles.filter(role => role.startsWith("guest{"));
+                  updatedRoles.push("hunter"); // Винаги да има hunter
+                }
+
+                // Обновяваме списъка с групи, ако не е член на никоя друга
+                const updatedGroups = userData.groups ? userData.groups.filter(group => group !== groupId) : [];
+
+                // ✅ Обновяване на `users/{userId}`
+                const groupSnap = await getDoc(groupRef);
+
+                // ✅ Проверяваме дали `groupRef` съществува, преди да правим `updateDoc()`
+                if (groupSnap.exists()) {
+                  await updateDoc(groupRef, {
+                    members: arrayRemove(userId)
+                  });
+                } else {
+                  console.warn("⚠ Групата не съществува, пропускаме update");
+                }
+                // ❌ Изтриваме потребителя от `groups/{groupId}/members/{userId}`
+                await deleteDoc(memberRef);
+
+                await updateDoc(userRef, {
+                  roles: updatedRoles,
+                  groups: updatedGroups,
+                });
+
+                // Обновяваме UI
+                setUserRoles(updatedRoles);
+              }
+
+              // 📌 Връщаме се към MainView
+              navigation.replace('Main', { refresh: true });
+
+            } catch (error) {
+              console.error("❌ Грешка при напускане на групата:", error);
+              Alert.alert("Грешка", "Неуспешно напускане на групата.");
+            }
+          },
+        },
+      ]
+    );
+};
+
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -394,46 +478,82 @@ const ChatScreen = ({ route, navigation }) => {
             style={{ transform: [{ rotate: `${menuRotation}deg` }] }} 
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{groupName}</Text>
+        <TouchableOpacity 
+          style={styles.groupLabel}
+          onPress={() => {
+            navigation.navigate("GroupOverview", {
+              groupId,
+              groupName,
+            });
+          }}
+        >
+          <Text style={styles.groupName}>{groupName}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Main')} style={{ marginLeft: 'auto', marginRight: 15, marginTop: 30 }}>
+        <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
       </View>
 
       {menuVisible && (
         <View style={styles.dropdownMenu}>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-            <Text style={styles.menuItem}>Профил</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert('Guest group chat functionality coming soon!')}>
-            <Text style={styles.menuItem}>Членове и гости</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert('Notifications feature coming soon!')}>
-            <Text style={styles.menuItem}>Новини и известия</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert('Marketplace feature coming soon!')}>
-            <Text style={styles.menuItem}>Канал за покупко-продажба</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert('Lost & Found feature coming soon!')}>
-            <Text style={styles.menuItem}>Канал за загубени/намерени кучета</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('EventsScreen', { groupId, groupName })}>
-            <Text style={styles.menuItem}>Канал за събития</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={uploadMediaFromGallery}>
-            <Text style={styles.menuItem}>Галерия</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={takeMediaWithCamera}>
-            <Text style={styles.menuItem}>Камера</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.menuItem}>
+            <Ionicons name="person-circle-outline" size={24} color="white" />
+            <Text style={styles.menuText}>Профил</Text>
           </TouchableOpacity>
 
-          {userRole === "admin" && (
+          <TouchableOpacity onPress={() => navigation.navigate('GuestChatScreen', { groupId, groupName })} style={styles.menuItem}>
+            <Ionicons name="people" size={24} color="white" />
+            <Text style={styles.menuText}>Чат с гости</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => Alert.alert('Notifications feature coming soon!')} style={styles.menuItem}>
+            <Ionicons name="notifications" size={24} color="white" />
+            <Text style={styles.menuText}>Новини и известия</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => Alert.alert('Marketplace feature coming soon!')} style={styles.menuItem}>
+            <Ionicons name="cart" size={24} color="white" />
+            <Text style={styles.menuText}>Канал за покупко-продажба</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => Alert.alert('Lost & Found feature coming soon!')} style={styles.menuItem}>
+            <Ionicons name="search" size={24} color="white" />
+            <Text style={styles.menuText}>Канал за загубени/намерени кучета</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('EventsScreen', { groupId, groupName })} style={styles.menuItem}>
+            <Ionicons name="calendar" size={24} color="white" />
+            <Text style={styles.menuText}>Канал за събития</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={uploadMediaFromGallery} style={styles.menuItem}>
+            <Ionicons name="images" size={24} color="white" />
+            <Text style={styles.menuText}>Галерия</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={takeMediaWithCamera} style={styles.menuItem}>
+            <Ionicons name="camera" size={24} color="white" />
+            <Text style={styles.menuText}>Камера</Text>
+          </TouchableOpacity>
+
+          {userRoles.includes("admin") && (
             <>
-              <TouchableOpacity onPress={() => navigation.navigate('AdminPanel')}>
-                <Text style={styles.menuItem}>AdminPanel</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('AdminPanel')} style={styles.menuItem}>
+                <Ionicons name="shield-checkmark" size={24} color="white" />
+                <Text style={styles.menuText}>Admin Panel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigation.navigate('Main')}>
-                <Text style={styles.menuItem}>Обратно към Main</Text>
+
+              <TouchableOpacity onPress={() => navigation.navigate('Main')} style={styles.menuItem}>
+                <Ionicons name="home" size={24} color="white" />
+                <Text style={styles.menuText}>Обратно към Main</Text>
               </TouchableOpacity>
             </>
           )}
+
+          <TouchableOpacity onPress={leaveGroup} style={[styles.menuItem, { backgroundColor: 'red' }]}> 
+            <Ionicons name="log-out" size={24} color="white" />
+            <Text style={styles.menuText}>Напусни групата</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -485,6 +605,7 @@ ChatScreen.propTypes = {
   }).isRequired,
   navigation: PropTypes.shape({
     navigate: PropTypes.func.isRequired,
+    replace: PropTypes.func.isRequired,
   }).isRequired,
 };
 

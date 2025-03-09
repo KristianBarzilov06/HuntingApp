@@ -3,29 +3,151 @@ import { StyleSheet } from 'react-native';
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F4F1',  // Светъл фон, за да изглежда по-чисто
-    paddingBottom: 10,
+    backgroundColor: '#3A3F32', // Тъмно зелено-сив фон
+    paddingLeft: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4E9F3D',  // Приятен зелен цвят
-    paddingVertical: 20,
-    paddingHorizontal: 25,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
+    backgroundColor: '#2A3B1F', // Тъмно-зеленикаво-кафяв
+    paddingBottom: 20,
+    padding: 15,
+    zIndex: 9,
   },
   headerTitle: {
     color: 'white',
-    fontSize: 22,
-    marginLeft: 15,
+    fontSize: 20,
+    marginLeft: 10,
+    marginTop: 30,
+  },
+  participantHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  
+  participantName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  
+  participantRoleText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  }, // Цветът ще бъде задаван динамично
+  
+  weaponContainer: {
+    marginTop: 8,
+  },
+  
+  weaponTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#555',
+  },
+  
+  weaponText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  eventTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
+  
+  eventTypeText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  
+  eventInfo: {
+    backgroundColor: '#FAFAFA',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  
+  eventDescription: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 10,
+  },
+  
+  eventLocation: {
+    fontSize: 16,
+    color: '#757575',
+    marginLeft: 10,
+  },
+  
+  eventDate: {
+    fontSize: 16,
+    color: '#757575',
+    marginLeft: 10,
+  },
+  
+  eventHuntType: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF9800',
+    marginLeft: 10,
+  },
+  
+  participantsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  
+  participantItem: {
+    backgroundColor: '#FFF',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  participantRoleBadge: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  }, 
+  noParticipants: {
+    fontSize: 16,
+    fontStyle: 'italic',
+    color: '#757575',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  
+  cancelButton: {
+    backgroundColor: '#D9534F',
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 18,
     fontWeight: 'bold',
   },
+  
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -48,7 +170,7 @@ export default StyleSheet.create({
   },
   eventItem: {
     backgroundColor: '#FFF',
-    padding: 18,
+    padding: 15,
     marginVertical: 10,
     marginHorizontal: 20,
     borderRadius: 12,
@@ -58,17 +180,32 @@ export default StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  eventTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2D4A0D',
+  eventIconContainer: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  eventContent: {
     flex: 1,
   },
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2D4A0D',
+  },
+  eventDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
   deleteButton: {
-    backgroundColor: '#FF5C5C',  // Червен цвят за изтриване
+    backgroundColor: '#FF5C5C',
     padding: 10,
     borderRadius: 8,
     justifyContent: 'center',
@@ -90,22 +227,37 @@ export default StyleSheet.create({
     color: '#555',
     marginBottom: 12,
   },
-  participantItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    marginBottom: 8,
-    borderRadius: 10,
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    backgroundColor: '#1E1E1E',
+    padding: 25,
+    borderRadius: 12,
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalButtonText: {
+    fontSize: 18,
+    color: 'white',
+    fontWeight: 'bold',
   },
   participantInfo: {
     flexDirection: 'column',
     flex: 1,
-  },
-  participantName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFF',
   },
   participantRole: {
     fontSize: 14,
@@ -178,53 +330,5 @@ export default StyleSheet.create({
     borderRadius: 5,
     textAlign: 'center',
     color: '#FFF',
-  },
-  cancelButton: {
-    backgroundColor: '#D9534F',
-    padding: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cancelButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  centeredView: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  modalContainer: {
-    backgroundColor: '#1E1E1E',
-    padding: 25,
-    borderRadius: 12,
-    width: '85%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-
-  modalButtonText: {
-    fontSize: 18,
-    color: 'white',
-    fontWeight: 'bold',
   },
 });

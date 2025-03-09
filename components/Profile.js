@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Modal, FlatList } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Checkbox } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -16,7 +17,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { PropTypes } from 'prop-types';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { saveProfileData, loadProfileData } from '../src/utils/firestoreUtils';
-import { auth } from '../firebaseConfig';
+import { doc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { auth, firestore } from '../firebaseConfig';
 import styles from '../src/styles/ProfileStyles.js';
 
 const Profile = ({ route, navigation }) => {
@@ -44,6 +46,7 @@ const Profile = ({ route, navigation }) => {
   const [newProfilePicture, setNewProfilePicture] = useState(null);
   const [showLicenseDatePicker, setShowLicenseDatePicker] = useState(false);
   const [showNotesDatePicker, setShowNotesDatePicker] = useState(false);
+  const [isWeaponModalVisible, setWeaponModalVisible] = useState(false);
   const dogOptions = ['Дратхаар', 'Гонче', 'Кокершпаньол'];
 
   useEffect(() => {
@@ -216,13 +219,35 @@ const Profile = ({ route, navigation }) => {
   ];
 
   const handleAddEquipment = () => {
-    setEquipment([...equipment, { name: '', model: '', caliber: '', type: '' }]);
+    setWeaponModalVisible(true); // Отваря модала
   };
-
-  const handleUpdateEquipment = (index, field, value) => {
-    const updatedEquipment = [...equipment];
-    updatedEquipment[index][field] = value;
-    setEquipment(updatedEquipment);
+  const handleSelectWeapon = (weapon) => {
+    setEquipment((prevEquipment) => [
+      ...prevEquipment,
+      { name: weapon.name, model: weapon.model, caliber: weapon.caliber, type: weapon.type }
+    ]);
+    setWeaponModalVisible(false);
+  };
+  const handleRemoveEquipment = async (index) => {
+    try {
+      // 1️⃣ Копираме текущия списък
+      const updatedEquipment = [...equipment];
+      const removedWeapon = updatedEquipment[index]; // Запазваме оръжието, което ще премахнем
+      updatedEquipment.splice(index, 1); // Премахваме елемента от локалния state
+  
+      // 2️⃣ Обновяваме локалното състояние
+      setEquipment(updatedEquipment);
+  
+      // 3️⃣ Изпращаме промените в Firestore
+      const userDocRef = doc(firestore, 'users', userId); // Променете пътя според структурата на базата
+      await updateDoc(userDocRef, {
+        equipment: arrayRemove(removedWeapon), // Премахва оръжието от Firestore
+      });
+  
+      console.log('Оръжието е премахнато успешно от базата.');
+    } catch (error) {
+      console.error('Грешка при премахване на оръжие от базата:', error);
+    }
   };
 
   return (
@@ -388,36 +413,64 @@ const Profile = ({ route, navigation }) => {
           )}
 
           <Text style={styles.sectionTitle}>Оръжия</Text>
-          {equipment.map((eq, index) => (
-            <View key={index}>
-              {isEditing ? (
-                <>
-                  <Text>Избери оръжие</Text>
-                  <Picker
-                    selectedValue={eq.name}
-                    onValueChange={(value) => {
-                      const selectedWeapon = weaponList.find(w => w.name === value);
-                      handleUpdateEquipment(index, 'name', selectedWeapon.name);
-                      handleUpdateEquipment(index, 'model', selectedWeapon.model);
-                      handleUpdateEquipment(index, 'caliber', selectedWeapon.caliber);
-                      handleUpdateEquipment(index, 'type', selectedWeapon.type);
-                    }}
-                  >
-                    {weaponList.map((weapon, i) => (
-                      <Picker.Item key={i} label={`${weapon.name} - ${weapon.model} (${weapon.caliber})`} value={weapon.name} />
-                    ))}
-                  </Picker>
-                </>
-              ) : (
-                <Text>{`Име: ${eq.name}\nМодел: ${eq.model}\nКалибър: ${eq.caliber}`}</Text>
-              )}
-            </View>
-          ))}
+
+          {/* Показване на списъка с оръжия */}
+          {equipment.length > 0 ? (
+            equipment.map((eq, index) => (
+              <View key={index} style={styles.equipmentContainer}>
+                <Text style={styles.weaponText}>
+                  {eq.name} - {eq.model} ({eq.caliber})
+                </Text>
+
+                {isEditing && (
+                  <TouchableOpacity onPress={() => handleRemoveEquipment(index)} style={styles.removeButton}>
+                    <Text style={styles.removeButtonText}>Премахни</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyText}>Няма добавени оръжия</Text>
+          )}
+
+          {/* Бутон за добавяне на ново оръжие */}
           {isEditing && (
-            <TouchableOpacity onPress={handleAddEquipment}>
+            <TouchableOpacity onPress={handleAddEquipment} style={styles.addButton}>
               <Text style={styles.addButtonText}>Добави оръжие</Text>
             </TouchableOpacity>
           )}
+
+          {/* Модал за избор на оръжие */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={isWeaponModalVisible}
+            onRequestClose={() => setWeaponModalVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Избери оръжие</Text>
+                <FlatList
+                  data={weaponList}
+                  keyExtractor={(item, index) => index.toString()}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.weaponItem}
+                      onPress={() => handleSelectWeapon(item)}
+                    >
+                      <Text style={styles.weaponText}>
+                        {item.name} - {item.model} ({item.caliber})
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
+                <TouchableOpacity onPress={() => setWeaponModalVisible(false)} style={styles.closeButton}>
+                  <Text style={styles.closeButtonText}>Затвори</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
 
           <Text style={styles.sectionTitle}>Куче</Text>
           {isEditing ? (

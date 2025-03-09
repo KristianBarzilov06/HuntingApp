@@ -56,17 +56,27 @@ const EventsScreen = ({ route, navigation }) => {
     
     return roleTranslations[highestRole];
   };
-
   useEffect(() => {
     const fetchUserRole = async () => {
       const userRef = doc(firestore, 'users', userId);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
-        setUserRole(getHighestRoleTranslation(userSnap.data().roles || ["hunter"]));
+        const roles = userSnap.data().roles || ["hunter"];
+        console.log("Ролите на потребителя:", roles);
+    
+        const roleHierarchy = ["admin", "chairman", "secretary", "member", "hunter", "guest"];
+        
+        const highestRole = roles
+          .sort((a, b) => roleHierarchy.indexOf(a) - roleHierarchy.indexOf(b))[0];
+    
+        console.log("Най-висока роля:", highestRole);
+        
+        setUserRole(highestRole);
       }
     };
     fetchUserRole();
   }, [userId]);
+  
 
   useEffect(() => {
     const unsubscribeMembers = onSnapshot(
@@ -206,25 +216,45 @@ const EventsScreen = ({ route, navigation }) => {
         <Text style={styles.headerTitle}>{groupName} - Събития</Text>
       </View>
 
-      {userRole === getHighestRoleTranslation(["admin", "chairman"]) && (
+      {["admin", "chairman"].includes(userRole) && (
         <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.createButton}>
           <Ionicons name="add-circle" size={24} color="white" />
           <Text style={styles.createButtonText}>Създай събитие</Text>
         </TouchableOpacity>
       )}
 
-      <FlatList
-        data={events}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => openEventDetails(item)}>
-            <View style={styles.eventItem}>
-              <Text style={styles.eventTitle}>
-                {item.eventDescription.length > 50 ? `${item.eventDescription.substring(0, 50)}...` : item.eventDescription}
-              </Text>
+        <FlatList
+          data={events}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => openEventDetails(item)} style={styles.eventItem}>
+              <View style={styles.eventIconContainer}>
+                <Ionicons 
+                  name={item.eventType === "hunt" ? "paw" : "calendar"} 
+                  size={30} 
+                  color="#4CAF50" 
+                />
+              </View>
 
-              {/* Проверява дали потребителят има право да изтрива събития */}
-              {userRole === getHighestRoleTranslation(["admin", "chairman"]) && (
+              <View style={styles.eventContent}>
+                <Text style={styles.eventTitle}>{item.eventDescription}</Text>
+
+                <View style={styles.eventDetails}>
+                  <Ionicons name="location" size={18} color="#757575" />
+                  <Text style={styles.eventLocation}>{item.location}</Text>
+                </View>
+
+                <View style={styles.eventDetails}>
+                  <Ionicons name="time" size={18} color="#757575" />
+                  <Text style={styles.eventDate}>
+                    {item.eventDates.length > 0 
+                      ? new Date(item.eventDates[0]).toLocaleDateString() 
+                      : "Няма избрана дата"}
+                  </Text>
+                </View>
+              </View>
+
+              {["admin", "chairman"].includes(userRole) && (
                 <TouchableOpacity 
                   onPress={() => confirmDeleteEvent(item.id)} 
                   style={styles.deleteButton}
@@ -232,10 +262,9 @@ const EventsScreen = ({ route, navigation }) => {
                   <Ionicons name="trash" size={24} color="white" />
                 </TouchableOpacity>
               )}
-            </View>
-          </TouchableOpacity>
-        )}
-      />
+            </TouchableOpacity>
+          )}
+        />
 
       {/* Modal for creating a new event */}
       <Modal visible={modalVisible} animationType="slide" transparent>
@@ -370,13 +399,29 @@ const EventsScreen = ({ route, navigation }) => {
                             <>
                               <Text>Избери оръжие</Text>
                               <Picker
-                                selectedValue={selectedWeapons[member.id]?.[0]?.value || ""}
+                                selectedValue={selectedWeapons[member.id]?.value || ""}
                                 onValueChange={(value) => {
                                   if (value) {
-                                    setSelectedWeapons(prevWeapons => ({
-                                      ...prevWeapons,
-                                      [member.id]: [{ label: value, value }]
-                                    }));
+                                    setSelectedWeapons((prevWeapons) => {
+                                      const updatedWeapons = {
+                                        ...prevWeapons,
+                                        [member.id]: {
+                                          label: value,
+                                          value: value
+                                        }
+                                      };
+
+                                      console.log("🔹 Обновени оръжия:", updatedWeapons);
+                                      return updatedWeapons;
+                                    });
+
+                                    // Уверяваме се, че потребителят остава активен
+                                    setParticipants((prevParticipants) => {
+                                      if (!prevParticipants.includes(member.id)) {
+                                        return [...prevParticipants, member.id];
+                                      }
+                                      return prevParticipants;
+                                    });
                                   }
                                 }}
                               >
@@ -404,79 +449,103 @@ const EventsScreen = ({ route, navigation }) => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      {/* Modal for event details */}
       <Modal visible={eventDetailsModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Детайли на събитие</Text>
-            {selectedEvent && (
-              <ScrollView>
-                <Text style={styles.modalDescription}>Описание: {selectedEvent.eventDescription}</Text>
-                <Text style={styles.modalDescription}>Локация: {selectedEvent.location}</Text>
-                <Text style={styles.modalDescription}>
-                  Дати: {selectedEvent.eventDates.map(date => {
-                    if (date?.seconds) {
-                      return new Date(date.seconds * 1000).toLocaleDateString();
-                    }
-                    return new Date(date).toLocaleDateString();
-                  }).join(', ')}
-                </Text>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Детайли за събитие</Text>
 
-                {selectedEvent.eventType === 'hunt' && (
-                  <Text style={styles.modalDescription}>Тип лов: {selectedEvent.huntType}</Text>
-                )}
-
-                {selectedEvent.timeRange && (
-                  <Text style={styles.modalDescription}>
-                    Времеви диапазон: 
-                    {new Date(selectedEvent.timeRange.start.seconds * 1000).toLocaleString()} - 
-                    {new Date(selectedEvent.timeRange.end.seconds * 1000).toLocaleString()}
-                  </Text>
-                )}
-
-                <Text style={styles.modalDescription}>Избрани участници:</Text>
-                {selectedEvent.participants && selectedEvent.participants.length > 0 ? (
-                  selectedEvent.participants.map((participantId) => {
-                    const participant = members.find(member => member.id === participantId);
-                    const weapons = selectedEvent.weapons?.[participantId] || []; // Взимаме избраните оръжия за този участник
-
-                    return participant ? (
-                      <View 
-                        key={participant.id} 
-                        style={[styles.participantItem, { backgroundColor: roleColors[getHighestRoleTranslation(participant.roles)] || "#444" }]}
-                      >
-                        <Text style={styles.participantName}>
-                          {participant.firstName} {participant.lastName}
-                        </Text>
-                        <Text style={styles.participantRole}>
-                          {getHighestRoleTranslation(participant.roles)}
-                        </Text>
-
-                        {/* Ако събитието е ловна хайка и има избрани оръжия, ги показваме */}
-                        {selectedEvent.eventType === 'hunt' && weapons.length > 0 && (
-                          <View style={styles.weaponList}>
-                            <Text style={styles.weaponTitle}>Оръжия:</Text>
-                            {weapons.map((weapon, index) => (
-                              <Text key={index} style={styles.weaponText}>
-                                - {weapon.label}
-                              </Text>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                    ) : null;
-                  })
-                ) : (
-                  <Text style={styles.modalDescription}>Няма избрани участници</Text>
-                )}
-              </ScrollView>
-            )}
-            <TouchableOpacity onPress={() => setEventDetailsModalVisible(false)} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Затвори</Text>
-            </TouchableOpacity>
+      {selectedEvent && (
+        <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+          {/* Тип на събитието */}
+          <View style={styles.eventTypeContainer}>
+            <Ionicons 
+              name={selectedEvent.eventType === "hunt" ? "paw" : "calendar"} 
+              size={24} 
+              color={selectedEvent.eventType === "hunt" ? "#FF9800" : "#4CAF50"} 
+            />
+            <Text style={[styles.eventTypeText, { 
+              color: selectedEvent.eventType === "hunt" ? "#FF9800" : "#4CAF50"
+            }]}>
+              {selectedEvent.eventType === "hunt" ? "Ловна хайка" : "Събитие"}
+            </Text>
           </View>
-        </View>
-      </Modal>
+
+          {/* Основна информация */}
+          <View style={styles.eventInfo}>
+            <View style={styles.infoRow}>
+              <Ionicons name="clipboard" size={20} color="#757575" />
+              <Text style={styles.eventDescription}>{selectedEvent.eventDescription}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Ionicons name="location" size={20} color="#757575" />
+              <Text style={styles.eventLocation}>{selectedEvent.location}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Ionicons name="calendar" size={20} color="#757575" />
+              <Text style={styles.eventDate}>
+                {selectedEvent.eventDates.map(date => 
+                  new Date(date).toLocaleDateString()
+                ).join(', ')}
+              </Text>
+            </View>
+
+            {selectedEvent.eventType === "hunt" && (
+              <View style={styles.infoRow}>
+                <Ionicons name="flag" size={20} color="#757575" />
+                <Text style={styles.eventHuntType}>
+                  {selectedEvent.huntType === "bigGame" ? "Лов на едър дивеч" : "Лов на пернат дивеч"}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Секция за участниците */}
+          <Text style={styles.participantsTitle}>Участници:</Text>
+          {selectedEvent.participants && selectedEvent.participants.length > 0 ? (
+            selectedEvent.participants.map((participantId) => {
+              const participant = members.find(member => member.id === participantId);
+              const weapons = selectedEvent.weapons?.[participantId] || [];
+              const role = participant ? getHighestRoleTranslation(participant.roles) : "";
+              const roleColor = roleColors[role] || "#444";
+
+              return participant ? (
+                <View key={participant.id} style={styles.participantItem}>
+                  <View style={styles.participantHeader}>
+                    <Text style={styles.participantName}>{participant.firstName} {participant.lastName}</Text>
+                    <Text style={[styles.participantRoleText, { color: roleColor }]}>
+                      {role}
+                    </Text>
+                  </View>
+
+                  {/* Оръжията ще се показват само ако събитието е ловна хайка */}
+                  {selectedEvent.eventType === "hunt" && weapons.length > 0 && (
+                    <View style={styles.weaponContainer}>
+                      <Text style={styles.weaponTitle}>Оръжия:</Text>
+                      {weapons.map((weapon, index) => (
+                        <Text key={index} style={styles.weaponText}>
+                          - {weapon.label}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ) : null;
+            })
+          ) : (
+            <Text style={styles.noParticipants}>Няма избрани участници</Text>
+          )}
+        </ScrollView>
+      )}
+
+      {/* Бутон за затваряне */}
+      <TouchableOpacity onPress={() => setEventDetailsModalVisible(false)} style={styles.cancelButton}>
+        <Text style={styles.cancelButtonText}>Затвори</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
   </View>
   );
 };
