@@ -7,21 +7,22 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, FlatList } from 'react-native';
+import { Video } from 'expo-av';
 import { Picker } from '@react-native-picker/picker';
-import { Checkbox } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { PropTypes } from 'prop-types';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { saveProfileData, loadProfileData } from '../src/utils/firestoreUtils';
-import { doc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayRemove, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, firestore } from '../firebaseConfig';
-import styles from '../src/styles/ProfileStyles.js';
+import styles from '../src/styles/ProfileStyles';
 
-const Profile = ({ route, navigation }) => {
+const Profile = ({ route, navigation, groupId }) => {
   const userEmail = route.params?.userEmail || auth.currentUser?.email || '';
   const userId = auth.currentUser?.uid || '';
 
@@ -47,37 +48,72 @@ const Profile = ({ route, navigation }) => {
   const [showLicenseDatePicker, setShowLicenseDatePicker] = useState(false);
   const [showNotesDatePicker, setShowNotesDatePicker] = useState(false);
   const [isWeaponModalVisible, setWeaponModalVisible] = useState(false);
-  const dogOptions = ['Дратхаар', 'Гонче', 'Кокершпаньол'];
+  const [galleryMedia, setGalleryMedia] = useState([]);
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  const [showFullScreenMedia, setShowFullScreenMedia] = useState(false);
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [sortMode, setSortMode] = useState({ method: 'date', order: 'asc' });
+  
+  // Нови state променливи за куче
+  const [dogs, setDogs] = useState([]);
+  const [dogForm, setDogForm] = useState({ dogPicture: null, dogName: '', dogBreed: '' });
+  const [dogModalVisible, setDogModalVisible] = useState(false);
+  const [isEditingDog, setIsEditingDog] = useState(false); // true ако редактираме, false ако добавяме
+  const [editingDogIndex, setEditingDogIndex] = useState(null);
+  const dogOptions = [
+    'Българско гонче',              
+    'Барак',                            
+    'Дратхаар',                         
+    'Курцхаар',                         
+    'Кокершпаньол',                     
+    'Английски пойнтер',                
+    'Сетер (Ирландски, Английски, Гордон)',    
+    'Бигъл',                            
+    'Бретонски шпаньол',                
+    'Английски спрингер шпаньол',        
+    'Фоксхаунд',                        
+    'Териер (Джагдтериер, Фокстериер)',  
+    'Лайка (Руски Европейски, Западносибирски)',    
+    'Баварска планинска хрътка',        
+    'Хановерска хрътка',                
+    'Посавско гонче',                   
+    'Балканско гонче',                  
+    'Сръбско трицветно гонче',          
+];
 
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        const profileData = await loadProfileData(userId);
-        if (profileData) {
-          setBio(profileData.bio || '');
-          setLicenseType(profileData.licenseType || '');
-          setHuntingLicense(profileData.huntingLicense || { start: '', end: '' });
-          setHuntingNotes(profileData.huntingNotes || { start: '', end: '' });
-          setEquipment(profileData.equipment || [{ name: '', model: '', caliber: '' }]);
-          setDogBreed(profileData.dogBreed || '');
-          setGallery(profileData.gallery || []);
-          setIsGroupHunting(profileData.isGroupHunting || false);
-          setIsSelectiveHunting(profileData.isSelectiveHunting || false);
-  
-          setUser({
-            firstName: profileData.firstName || '',
-            lastName: profileData.lastName || '',
-            email: profileData.email || userEmail,
-            profilePicture: profileData.profilePicture || null,
-          });
-        }
-      } catch (error) {
-        console.error('Грешка при зареждане на данни:', error.message);
+useEffect(() => {
+  const fetchProfileData = async () => {
+    try {
+      const profileData = await loadProfileData(userId);
+      if (profileData) {
+        setBio(profileData.bio || '');
+        setLicenseType(profileData.licenseType || '');
+        setHuntingLicense(profileData.huntingLicense || { start: '', end: '' });
+        setHuntingNotes(profileData.huntingNotes || { start: '', end: '' });
+        setEquipment(profileData.equipment || [{ name: '', model: '', caliber: '' }]);
+        setDogBreed(profileData.dogBreed || '');
+        setGallery(profileData.gallery || []);
+        setIsGroupHunting(profileData.isGroupHunting || false);
+        setIsSelectiveHunting(profileData.isSelectiveHunting || false);
+
+        setUser({
+          firstName: profileData.firstName || '',
+          lastName: profileData.lastName || '',
+          email: profileData.email || userEmail,
+          profilePicture: profileData.profilePicture || null,
+        });
+        // Зареждане на кучета от профила, ако има
+        setDogs(profileData.dogs || []);
       }
-    };
-  
-    fetchProfileData();
-  }, [userId]);
+    } catch (error) {
+      console.error('Грешка при зареждане на данни:', error.message);
+    }
+  };
+
+  fetchProfileData();
+}, [userId]);
+
 
   const handleSaveChanges = async () => {
     const profileData = {
@@ -97,54 +133,134 @@ const Profile = ({ route, navigation }) => {
 
     try {
       if (newProfilePicture) {
-        console.log('Започва качване на нова снимка в Firebase Storage...');
         const storage = getStorage();
-      
-        console.log('URI за качване:', newProfilePicture);
         const response = await fetch(newProfilePicture);
         if (!response.ok) {
           throw new Error('URI е недостъпен. Проверете валидността на файла.');
         }
         const blob = await response.blob();
-        console.log('Blob е създаден успешно. Размер:', blob.size);
-        console.log('MIME тип на файла:', blob.type);
-      
         const fileRef = ref(storage, `profilePictures/${userId}`);
-        console.log('FileRef Path:', fileRef.fullPath);
         await uploadBytes(fileRef, blob);
-      
         const downloadUrl = await getDownloadURL(fileRef);
-        console.log('Успешно качване. Firebase URL:', downloadUrl);
-      
-        profileData.profilePicture = downloadUrl; // Актуализиране на профилната снимка
+        profileData.profilePicture = downloadUrl;
       }
 
-      console.log('Записване на данни в Firestore:', profileData);
       await saveProfileData(userId, profileData);
-
-      console.log('Успешно записване в Firestore. Актуализиране на състоянието...');
       setUser((prevUser) => ({ ...prevUser, profilePicture: profileData.profilePicture }));
       setIsEditing(false);
-      console.log('Профилът е успешно обновен!');
     } catch (error) {
       console.error('Грешка при запазването:', error.message);
       Alert.alert('Грешка', 'Неуспешно записване на профила.');
     }
   };
-  
+
+  useEffect(() => {
+    const fetchGalleryMedia = async () => {
+      try {
+        const currentGroupId = route.params?.groupId || groupId;
+        if (!currentGroupId) {
+          console.warn("Няма зададен groupId. Пропускаме извличането на медийните файлове.");
+          return;
+        }
+        const messagesRef = collection(firestore, 'groups', currentGroupId, 'messages');
+        const profileUserId = route.params?.profileUserId || userId;
+        const q = query(
+          messagesRef,
+          where('userId', '==', profileUserId),
+          where('mediaUrl', '!=', '')
+        );
+        const querySnapshot = await getDocs(q);
+        const galleryMessages = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.mediaType && (data.mediaType === 'images' || data.mediaType === 'videos')) {
+            galleryMessages.push({ id: doc.id, ...data });
+          }
+        });
+        galleryMessages.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+        setGalleryMedia(galleryMessages);
+      } catch (error) {
+        console.error('Error fetching gallery media: ', error);
+      }
+    };
+    fetchGalleryMedia();
+  }, [userId, route.params?.groupId, groupId]);
+
+  useEffect(() => {
+    const sortedMedia = [...galleryMedia].sort((a, b) => {
+      if (sortMode.method === 'date') {
+        const aTime = a.timestamp?.toMillis() || 0;
+        const bTime = b.timestamp?.toMillis() || 0;
+        return sortMode.order === 'asc' ? aTime - bTime : bTime - aTime;
+      } else if (sortMode.method === 'type') {
+        return sortMode.order === 'asc'
+          ? a.mediaType.localeCompare(b.mediaType)
+          : b.mediaType.localeCompare(a.mediaType);
+      } else if (sortMode.method === 'size') {
+        const aSize = a.size || 0;
+        const bSize = b.size || 0;
+        return sortMode.order === 'asc' ? aSize - bSize : bSize - aSize;
+      }
+      return 0;
+    });
+    setGalleryMedia(sortedMedia);
+  }, [sortMode]);
+
+  const handleSortMethod = (method) => {
+    setSortMode(prev => ({ ...prev, method }));
+    setSortMenuVisible(false);
+  };
+
+  const handleSortOrder = (order) => {
+    setSortMode(prev => ({ ...prev, order }));
+    setSortMenuVisible(false);
+  };
+
+  const isSelectedMethod = (method) => sortMode.method === method;
+  const isSelectedOrder = (order) => sortMode.order === order;
+
+  const handleOpenMedia = (item) => {
+    setSelectedMedia(item);
+    setShowFullScreenMedia(true);
+  };
+
+  const handleAddEquipment = () => {
+    setWeaponModalVisible(true);
+  };
+
+  const handleSelectWeapon = (weapon) => {
+    setEquipment((prevEquipment) => [
+      ...prevEquipment,
+      { name: weapon.name, model: weapon.model, caliber: weapon.caliber, type: weapon.type }
+    ]);
+    setWeaponModalVisible(false);
+  };
+
+  const handleRemoveEquipment = async (index) => {
+    try {
+      const updatedEquipment = [...equipment];
+      const removedWeapon = updatedEquipment[index];
+      updatedEquipment.splice(index, 1);
+      setEquipment(updatedEquipment);
+      const userDocRef = doc(firestore, 'users', userId);
+      await updateDoc(userDocRef, {
+        equipment: arrayRemove(removedWeapon),
+      });
+    } catch (error) {
+      console.error('Грешка при премахване на оръжие от базата:', error);
+    }
+  };
 
   const handleProfilePictureChange = async () => {
     if (!isEditing) {
       console.log('Промяната на профилната снимка е неактивна извън режим на редактиране.');
       return;
     }
-
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Нужно е разрешение', 'Моля, дайте разрешение за достъп до галерията.');
       return;
     }
-
     try {
       const pickerResult = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -152,19 +268,11 @@ const Profile = ({ route, navigation }) => {
         aspect: [1, 1],
         quality: 0.7,
       });
-
-      console.log('Резултат от ImagePicker:', pickerResult);
-
       if (!pickerResult.canceled) {
         const selectedImage = pickerResult.assets && pickerResult.assets[0];
         if (selectedImage?.uri) {
-          console.log('Нов URI на изображението:', selectedImage.uri);
           setNewProfilePicture(selectedImage.uri);
-        } else {
-          console.error('URI е недефиниран, въпреки че изборът не е отказан.');
         }
-      } else {
-        console.log('Изборът на изображение е отказан.');
       }
     } catch (error) {
       console.error('Грешка при избора на изображение:', error.message);
@@ -177,8 +285,6 @@ const Profile = ({ route, navigation }) => {
       setUser({
         name: '',
         email: '',
-        /* eslint-disable-next-line no-undef */
-        profilePicture: require('../images/IMG_20230701_185012_979.jpg'),
       });
       navigation.reset({
         index: 0,
@@ -211,6 +317,45 @@ const Profile = ({ route, navigation }) => {
     }
   };
 
+  // Функции за работа с куче
+  const handleDogPictureChange = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Нужно разрешение', 'Моля, дайте разрешение за достъп до галерията.');
+      return;
+    }
+    try {
+      const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!pickerResult.canceled) {
+        const selectedImage = pickerResult.assets && pickerResult.assets[0];
+        if (selectedImage?.uri) {
+          setDogForm({ ...dogForm, dogPicture: selectedImage.uri });
+        }
+      }
+    } catch (error) {
+      console.error('Грешка при избора на снимка за куче:', error.message);
+    }
+  };
+
+  const openDogModal = (dog = null, index = null) => {
+    if (dog) {
+      // Редактиране – попълва формата с данните на кучето
+      setDogForm(dog);
+      setIsEditingDog(true);
+      setEditingDogIndex(index);
+    } else {
+      // Добавяне – изчиства формата
+      setDogForm({ dogPicture: null, dogName: '', dogBreed: '' });
+      setIsEditingDog(false);
+      setEditingDogIndex(null);
+    }
+    setDogModalVisible(true);
+  };
   const weaponList = [
     { name: 'Blaser', model: 'R8', caliber: '.308 Winchester', type: 'carbine' },
     { name: 'Tikka', model: 'T3X', caliber: '.30-06 Springfield', type: 'carbine' },
@@ -218,41 +363,38 @@ const Profile = ({ route, navigation }) => {
     { name: 'Beretta', model: 'A400', caliber: '12/76', type: 'shotgun' },
   ];
 
-  const handleAddEquipment = () => {
-    setWeaponModalVisible(true); // Отваря модала
-  };
-  const handleSelectWeapon = (weapon) => {
-    setEquipment((prevEquipment) => [
-      ...prevEquipment,
-      { name: weapon.name, model: weapon.model, caliber: weapon.caliber, type: weapon.type }
-    ]);
-    setWeaponModalVisible(false);
-  };
-  const handleRemoveEquipment = async (index) => {
+  const handleSaveDog = async () => {
+    let updatedDogs;
+    if (isEditingDog && editingDogIndex !== null) {
+      // Редактиране – обновяваме съществуващото куче
+      updatedDogs = [...dogs];
+      updatedDogs[editingDogIndex] = dogForm;
+    } else {
+      // Добавяне – новото куче се добавя към масива
+      updatedDogs = [...dogs, dogForm];
+    }
+    // Актуализираме локалния state
+    setDogs(updatedDogs);
+    
     try {
-      // 1️⃣ Копираме текущия списък
-      const updatedEquipment = [...equipment];
-      const removedWeapon = updatedEquipment[index]; // Запазваме оръжието, което ще премахнем
-      updatedEquipment.splice(index, 1); // Премахваме елемента от локалния state
-  
-      // 2️⃣ Обновяваме локалното състояние
-      setEquipment(updatedEquipment);
-  
-      // 3️⃣ Изпращаме промените в Firestore
-      const userDocRef = doc(firestore, 'users', userId); // Променете пътя според структурата на базата
-      await updateDoc(userDocRef, {
-        equipment: arrayRemove(removedWeapon), // Премахва оръжието от Firestore
-      });
-  
-      console.log('Оръжието е премахнато успешно от базата.');
+      // Обновяваме документа на потребителя във Firestore с новия масив от кучета
+      const userDocRef = doc(firestore, 'users', userId);
+      await updateDoc(userDocRef, { dogs: updatedDogs });
+      // Изчистваме формата и затваряме модала
+      setDogForm({ dogPicture: null, dogName: '', dogBreed: '' });
+      setDogModalVisible(false);
+      setIsEditingDog(false);
+      setEditingDogIndex(null);
     } catch (error) {
-      console.error('Грешка при премахване на оръжие от базата:', error);
+      console.error('Грешка при запазване на кучето:', error);
+      Alert.alert('Грешка', 'Неуспешно запазване на данните за кучето.');
     }
   };
+  
 
   return (
     <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={30} color="white" />
         </TouchableOpacity>
@@ -262,184 +404,399 @@ const Profile = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollView}>
-      <View style={styles.profileInfo}>
-      <TouchableOpacity onPress={handleProfilePictureChange}>
-        {isEditing ? (
-          newProfilePicture ? (
-            <Image source={{ uri: newProfilePicture }} style={styles.profilePicture} />
-          ) : user.profilePicture ? (
-            <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
-          ) : (
-            <Ionicons name="person-circle" size={100} color="gray" />
-          )
-        ) : user.profilePicture ? (
-          <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
-        ) : (
-          <Ionicons name="person-circle" size={100} color="gray" />
-        )}
-      </TouchableOpacity>
-
-      {isEditing ? (
-        <>
-          {/* Поле за редактиране на име */}
-          <TextInput
-            style={styles.input}
-            placeholder="Име"
-            value={user.firstName}
-            onChangeText={(text) => setUser({ ...user, firstName: text })}
-          />
-          {/* Поле за редактиране на фамилия */}
-          <TextInput
-            style={styles.input}
-            placeholder="Фамилия"
-            value={user.lastName}
-            onChangeText={(text) => setUser({ ...user, lastName: text })}
-          />
-        </>
-      ) : (
-        // Показване на име и фамилия, ако не сме в режим на редактиране
-        <Text style={styles.userName}>{`${user.firstName} ${user.lastName}`}</Text>
-      )}
-
-      {/* Имейл адрес */}
-      <Text style={styles.userEmail}>{user.email}</Text>
-    </View>
-
-        <View style={styles.profileDetailsContainer}>
-          <Text style={styles.sectionTitle}>Биография</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.input}
-              placeholder="Напишете кратка биография"
-              value={bio}
-              onChangeText={setBio}
-              multiline
-            />
-          ) : (
-            <Text>{bio || 'Няма въведена биография'}</Text>
-          )}
-
-            <Text style={styles.sectionTitle}>Ловен лиценз</Text>
+        {/* Профилна информация */}
+        <View style={styles.profileInfoContainer}>
+          <TouchableOpacity onPress={handleProfilePictureChange}>
             {isEditing ? (
-            <View>
-                <View style={styles.checkboxContainer}>
-                <Checkbox
-                    status={isGroupHunting ? 'checked' : 'unchecked'}
-                    onPress={() => setIsGroupHunting(!isGroupHunting)}
-                />
-                <Text>Групов лов</Text>
-                </View>
-                <View style={styles.checkboxContainer}>
-                <Checkbox
-                    status={isSelectiveHunting ? 'checked' : 'unchecked'}
-                    onPress={() => setIsSelectiveHunting(!isSelectiveHunting)}
-                    disabled={!isGroupHunting}
-                />
-                <Text>Подборен лов</Text>
-                </View>
-            </View>
+              newProfilePicture ? (
+                <Image source={{ uri: newProfilePicture }} style={styles.profilePicture} />
+              ) : user.profilePicture ? (
+                <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
+              ) : (
+                <Ionicons name="person-circle" size={100} color="gray" />
+              )
+            ) : user.profilePicture ? (
+              <Image source={{ uri: user.profilePicture }} style={styles.profilePicture} />
             ) : (
-            <Text>
-                {isGroupHunting && isSelectiveHunting
-                ? 'Групов лов, Подборен лов'
-                : isGroupHunting
-                ? 'Групов лов'
-                : 'Няма избран лиценз'}
-            </Text>
+              <Ionicons name="person-circle" size={100} color="gray" />
             )}
-
-          <Text style={styles.sectionTitle}>Ловен билет</Text>
-          {isEditing ? (
-            <>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowLicenseDatePicker(true)}
-              >
-                <Text>Изберете начална дата</Text>
-              </TouchableOpacity>
-              {showLicenseDatePicker && (
-                <DateTimePicker
-                  value={new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={handleLicenseDateChange}
+          </TouchableOpacity>
+          <View style={styles.userDetails}>
+            {isEditing ? (
+              <>
+                <TextInput
+                  style={styles.nameInput}
+                  placeholder="Име"
+                  value={user.firstName}
+                  onChangeText={(text) => setUser({ ...user, firstName: text })}
                 />
-              )}
-              <Text>
-                Начална дата: {huntingLicense.start || 'Не е избрано'}
-              </Text>
-              <Text>
-                Крайна дата: {huntingLicense.end || 'Не е изчислено'}
-              </Text>
-            </>
-          ) : (
-            <Text>
-              {huntingLicense.start
-                ? `${huntingLicense.start} - ${huntingLicense.end}`
-                : 'Няма въведен ловен билет'}
-            </Text>
-          )}
-
-          <Text style={styles.sectionTitle}>Ловна бележка</Text>
-          {isEditing ? (
-            <>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowNotesDatePicker(true)}
-              >
-                <Text>Изберете начална дата</Text>
-              </TouchableOpacity>
-              {showNotesDatePicker && (
-                <DateTimePicker
-                  value={new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={handleNotesDateChange}
+                <TextInput
+                  style={styles.nameInput}
+                  placeholder="Фамилия"
+                  value={user.lastName}
+                  onChangeText={(text) => setUser({ ...user, lastName: text })}
                 />
-              )}
-              <Text>
-                Начална дата: {huntingNotes.start || 'Не е избрано'}
-              </Text>
-              <Text>
-                Крайна дата: {huntingNotes.end || 'Не е изчислено'}
-              </Text>
-            </>
-          ) : (
-            <Text>
-              {huntingNotes.start
-                ? `${huntingNotes.start} - ${huntingNotes.end}`
-                : 'Няма въведена ловна бележка'}
-            </Text>
-          )}
+              </>
+            ) : (
+              <Text style={styles.userName}>{`${user.firstName} ${user.lastName}`}</Text>
+            )}
+            <View style={styles.emailContainer}>
+              <Ionicons name="mail" size={16} color="#ccc" />
+              <Text style={styles.userEmail}>{user.email}</Text>
+            </View>
+          </View>
+        </View>
 
-          <Text style={styles.sectionTitle}>Оръжия</Text>
-
-          {/* Показване на списъка с оръжия */}
-          {equipment.length > 0 ? (
-            equipment.map((eq, index) => (
-              <View key={index} style={styles.equipmentContainer}>
-                <Text style={styles.weaponText}>
-                  {eq.name} - {eq.model} ({eq.caliber})
-                </Text>
-
+        <View style={styles.dogSection}>
+          <Text style={styles.sectionTitle}>Кучета</Text>
+          {dogs.length > 0 ? (
+            dogs.map((dog, index) => (
+              <View key={index} style={styles.dogContainer}>
+                {dog.dogPicture ? (
+                  <Image source={{ uri: dog.dogPicture }} style={styles.dogPicture} />
+                ) : (
+                  <Ionicons name="paw-outline" size={60} color="#ccc" />
+                )}
+                <View style={styles.dogInfo}>
+                  <Text style={styles.dogNameText}>{dog.dogName}</Text>
+                  <Text style={styles.dogBreedText}>{dog.dogBreed}</Text>
+                </View>
                 {isEditing && (
-                  <TouchableOpacity onPress={() => handleRemoveEquipment(index)} style={styles.removeButton}>
-                    <Text style={styles.removeButtonText}>Премахни</Text>
-                  </TouchableOpacity>
+                  <View style={styles.dogActions}>
+                    <TouchableOpacity onPress={() => openDogModal(dog, index)}>
+                      <Ionicons name="create-outline" size={24} color="#8FBA1D" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const updatedDogs = [...dogs];
+                        updatedDogs.splice(index, 1);
+                        setDogs(updatedDogs);
+                        // Запазване на изтритото куче в базата данни
+                        const userDocRef = doc(firestore, 'users', userId);
+                        updateDoc(userDocRef, { dogs: updatedDogs }).catch(error => {
+                          console.error('Грешка при изтриване на куче от базата:', error);
+                        });
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={24} color="#c0392b" />
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             ))
           ) : (
-            <Text style={styles.emptyText}>Няма добавени оръжия</Text>
+            <Text style={styles.sectionText}>Няма добавени кучета</Text>
           )}
-
-          {/* Бутон за добавяне на ново оръжие */}
           {isEditing && (
-            <TouchableOpacity onPress={handleAddEquipment} style={styles.addButton}>
-              <Text style={styles.addButtonText}>Добави оръжие</Text>
+            <TouchableOpacity onPress={() => openDogModal()} style={styles.addDogButton}>
+              <Text style={styles.addDogButtonText}>Добави куче</Text>
             </TouchableOpacity>
           )}
+        </View>
 
+  
+        {/* Детайли на профила */}
+        <View style={styles.profileDetailsContainer}>
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Биография</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.input}
+                placeholder="Напишете кратка биография"
+                value={bio}
+                onChangeText={setBio}
+                multiline
+              />
+            ) : (
+              <Text style={styles.sectionText}>{bio || 'Няма въведена биография'}</Text>
+            )}
+          </View>
+  
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Ловен лиценз</Text>
+            {isEditing ? (
+              <>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={() => setShowLicenseDatePicker(true)}
+                >
+                  <Text style={styles.datePickerText}>Изберете начална дата</Text>
+                </TouchableOpacity>
+                {showLicenseDatePicker && (
+                  <DateTimePicker
+                    value={new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={handleLicenseDateChange}
+                  />
+                )}
+                <Text style={styles.sectionText}>
+                  Начална дата: {huntingLicense.start || 'Не е избрано'}
+                </Text>
+                <Text style={styles.sectionText}>
+                  Крайна дата: {huntingLicense.end || 'Не е изчислено'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.sectionText}>
+                {huntingLicense.start
+                  ? `${huntingLicense.start} - ${huntingLicense.end}`
+                  : 'Няма въведен ловен билет'}
+              </Text>
+            )}
+          </View>
+  
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Ловна бележка</Text>
+            {isEditing ? (
+              <>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={() => setShowNotesDatePicker(true)}
+                >
+                  <Text style={styles.datePickerText}>Изберете начална дата</Text>
+                </TouchableOpacity>
+                {showNotesDatePicker && (
+                  <DateTimePicker
+                    value={new Date()}
+                    mode="date"
+                    display="default"
+                    onChange={handleNotesDateChange}
+                  />
+                )}
+                <Text style={styles.sectionText}>
+                  Начална дата: {huntingNotes.start || 'Не е избрано'}
+                </Text>
+                <Text style={styles.sectionText}>
+                  Крайна дата: {huntingNotes.end || 'Не е изчислено'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.sectionText}>
+                {huntingNotes.start
+                  ? `${huntingNotes.start} - ${huntingNotes.end}`
+                  : 'Няма въведена ловна бележка'}
+              </Text>
+            )}
+          </View>
+  
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Оръжия</Text>
+            {equipment.length > 0 ? (
+              equipment.map((eq, index) => (
+                <View key={index} style={styles.equipmentContainer}>
+                  <Text style={styles.weaponText}>
+                    {eq.name} - {eq.model} ({eq.caliber})
+                  </Text>
+                  {isEditing && (
+                    <TouchableOpacity
+                      onPress={() => handleRemoveEquipment(index)}
+                      style={styles.removeButton}
+                    >
+                      <Text style={styles.removeButtonText}>Премахни</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))
+            ) : (
+              <Text style={styles.sectionText}>Няма добавени оръжия</Text>
+            )}
+            {isEditing && (
+              <TouchableOpacity onPress={handleAddEquipment} style={styles.addButton}>
+                <Text style={styles.addButtonText}>Добави оръжие</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+  
+          {/* Секция за Галерия */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.galleryHeader}>
+              <Text style={styles.sectionTitle}>Галерия</Text>
+              <TouchableOpacity
+                onPress={() => setShowGalleryModal(true)}
+                style={styles.openGalleryButton}
+              >
+                <Text style={styles.openGalleryButtonText}>Виж всички</Text>
+              </TouchableOpacity>
+            </View>
+            {galleryMedia.length > 0 ? (
+              <FlatList
+                data={galleryMedia}
+                horizontal
+                pagingEnabled={true}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity onPress={() => handleOpenMedia(item)}>
+                    {item.mediaType === 'videos' ? (
+                      <Video
+                        source={{ uri: item.mediaUrl }}
+                        style={styles.galleryMediaItem}
+                        useNativeControls
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Image
+                        source={{ uri: item.mediaUrl }}
+                        style={styles.galleryMediaItem}
+                        resizeMode="cover"
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            ) : (
+              <Text style={styles.sectionText}>Няма намерени медии</Text>
+            )}
+          </View>
+  
+          {/* Модал за пълноекранна галерия */}
+          <Modal
+            visible={showGalleryModal}
+            animationType="slide"
+            onRequestClose={() => setShowGalleryModal(false)}
+          >
+            <View style={styles.fullScreenGalleryContainer}>
+              <View style={styles.fullScreenModalHeader}>
+                <Text style={styles.fullScreenModalTitle}>Галеря</Text>
+                <TouchableOpacity
+                  onPress={() => setShowGalleryModal(false)}
+                  style={styles.fullScreenGalleryCloseButton}
+                >
+                  <Ionicons name="close" size={30} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.sortButtonContainer}>
+                <TouchableOpacity
+                  onPress={() => setSortMenuVisible(!sortMenuVisible)}
+                  style={styles.sortButton}
+                >
+                  <Ionicons name="funnel-outline" size={24} color="#fff" />
+                </TouchableOpacity>
+                {sortMenuVisible && (
+                  <View style={styles.sortMenuContainer}>
+                    <Text style={styles.sortMenuTitle}>Метод:</Text>
+                    <TouchableOpacity
+                      onPress={() => handleSortMethod('date')}
+                      style={[
+                        styles.sortMenuItem,
+                        isSelectedMethod('date') && styles.sortMenuItemSelected,
+                      ]}
+                    >
+                      <Text style={styles.sortMenuItemText}>По дата</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleSortMethod('type')}
+                      style={[
+                        styles.sortMenuItem,
+                        isSelectedMethod('type') && styles.sortMenuItemSelected,
+                      ]}
+                    >
+                      <Text style={styles.sortMenuItemText}>По вид</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleSortMethod('size')}
+                      style={[
+                        styles.sortMenuItem,
+                        isSelectedMethod('size') && styles.sortMenuItemSelected,
+                      ]}
+                    >
+                      <Text style={styles.sortMenuItemText}>По размер</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.sortMenuTitle}>Ред:</Text>
+                    <TouchableOpacity
+                      onPress={() => handleSortOrder('asc')}
+                      style={[
+                        styles.sortMenuItem,
+                        isSelectedOrder('asc') && styles.sortMenuItemSelected,
+                      ]}
+                    >
+                      <Text style={styles.sortMenuItemText}>Възходящо</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleSortOrder('desc')}
+                      style={[
+                        styles.sortMenuItem,
+                        isSelectedOrder('desc') && styles.sortMenuItemSelected,
+                      ]}
+                    >
+                      <Text style={styles.sortMenuItemText}>Низходящо</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+              <ScrollView contentContainerStyle={styles.fullScreenGalleryContent}>
+                <View style={styles.galleryGrid}>
+                  {galleryMedia.map((item) => (
+                    <View key={item.id} style={styles.galleryGridItem}>
+                      <TouchableOpacity onPress={() => handleOpenMedia(item)}>
+                        {item.mediaType === 'videos' ? (
+                          <Video
+                            source={{ uri: item.mediaUrl }}
+                            style={styles.galleryGridMedia}
+                            useNativeControls={false}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Image
+                            source={{ uri: item.mediaUrl }}
+                            style={styles.galleryGridMedia}
+                            resizeMode="cover"
+                          />
+                        )}
+                      </TouchableOpacity>
+                      <Text style={styles.gridItemInfoText}>
+                        {new Date(item.timestamp?.toMillis() || Date.now()).toLocaleDateString()}
+                        {item.location ? ` - ${item.location}` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+  
+          {/* Модал за пълноекранно преглеждане на избраната медия */}
+          {selectedMedia && (
+            <Modal
+              visible={showFullScreenMedia}
+              animationType="slide"
+              onRequestClose={() => {
+                setShowFullScreenMedia(false);
+                setSelectedMedia(null);
+              }}
+            >
+              <View style={styles.fullScreenMediaViewContainer}>
+                <TouchableOpacity
+                  style={styles.fullScreenMediaCloseButton}
+                  onPress={() => {
+                    setShowFullScreenMedia(false);
+                    setSelectedMedia(null);
+                  }}
+                >
+                  <Ionicons name="close" size={30} color="#fff" />
+                </TouchableOpacity>
+                {selectedMedia.mediaType === 'videos' ? (
+                  <Video
+                    source={{ uri: selectedMedia.mediaUrl }}
+                    style={styles.fullScreenMediaView}
+                    useNativeControls
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Image
+                    source={{ uri: selectedMedia.mediaUrl }}
+                    style={styles.fullScreenMediaView}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={styles.mediaInfoText}>
+                  {new Date(selectedMedia.timestamp?.toMillis() || Date.now()).toLocaleString()}
+                  {selectedMedia.location ? ` - ${selectedMedia.location}` : ''}
+                </Text>
+              </View>
+            </Modal>
+          )}
+  
           {/* Модал за избор на оръжие */}
           <Modal
             animationType="slide"
@@ -470,35 +827,67 @@ const Profile = ({ route, navigation }) => {
               </View>
             </View>
           </Modal>
-
-
-          <Text style={styles.sectionTitle}>Куче</Text>
-          {isEditing ? (
-            <Picker
-              selectedValue={dogBreed}
-              onValueChange={(itemValue) => setDogBreed(itemValue)}
-              style={styles.input}
-            >
-              {dogOptions.map((dog, index) => (
-                <Picker.Item key={index} label={dog} value={dog} />
-              ))}
-            </Picker>
-          ) : (
-            <Text>{dogBreed || 'Няма въведена порода куче'}</Text>
-          )}
-
-          <Text style={styles.sectionTitle}>Галерия</Text>
-          <Text>Галерията е в разработка</Text>
+  
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => (isEditing ? handleSaveChanges() : setIsEditing(true))}
+          >
+            <Text style={styles.editButtonText}>
+              {isEditing ? 'Запази промените' : 'Редактирай профила'}
+            </Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => (isEditing ? handleSaveChanges() : setIsEditing(true))}
+  
+        {/* Модал за добавяне на куче */}
+        <Modal
+          visible={dogModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setDogModalVisible(false)}
         >
-          <Text style={styles.editButtonText}>
-            {isEditing ? 'Запази промените' : 'Редактирай профила'}
-          </Text>
-        </TouchableOpacity>
+          <View style={styles.dogModalContainer}>
+            <View style={styles.dogModalContent}>
+              <View style={styles.dogModalHeader}>
+                <Text style={styles.dogModalTitle}>
+                  {isEditingDog ? 'Редактирай куче' : 'Добави куче'}
+                </Text>
+                <TouchableOpacity onPress={() => setDogModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity onPress={handleDogPictureChange} style={styles.dogPictureContainer}>
+                {dogForm.dogPicture ? (
+                  <Image source={{ uri: dogForm.dogPicture }} style={styles.dogPictureModal} />
+                ) : (
+                  <Ionicons name="paw-outline" size={60} color="#ccc" />
+                )}
+              </TouchableOpacity>
+              <TextInput
+                style={styles.dogInput}
+                placeholder="Име на кучето"
+                value={dogForm.dogName}
+                onChangeText={(text) => setDogForm({ ...dogForm, dogName: text })}
+              />
+              <Picker
+                selectedValue={dogForm.dogBreed}
+                onValueChange={(itemValue) => setDogForm({ ...dogForm, dogBreed: itemValue })}
+                style={styles.dogPicker}
+              >
+                {dogOptions.map((dog, index) => (
+                  <Picker.Item key={index} label={dog} value={dog} />
+                ))}
+              </Picker>
+              <View style={styles.dogModalButtons}>
+                <TouchableOpacity onPress={() => setDogModalVisible(false)} style={styles.dogCancelButton}>
+                  <Text style={styles.dogCancelButtonText}>Отказ</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleSaveDog} style={styles.dogSaveButton}>
+                  <Text style={styles.dogSaveButtonText}>Запази</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </View>
   );
@@ -508,12 +897,15 @@ Profile.propTypes = {
   route: PropTypes.shape({
     params: PropTypes.shape({
       userEmail: PropTypes.string,
+      profileUserId: PropTypes.string,
+      groupId: PropTypes.string,
     }),
   }).isRequired,
   navigation: PropTypes.shape({
     goBack: PropTypes.func.isRequired,
     reset: PropTypes.func.isRequired,
   }).isRequired,
+  groupId: PropTypes.string,
 };
 
 export default Profile;

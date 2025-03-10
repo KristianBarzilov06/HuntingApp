@@ -224,15 +224,11 @@ const GroupOverview = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-
       {/* Header */}
       <View style={styles.header}>
-        {/* Бутон за връщане назад */}
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-
-        {/* Няма groupName тук - само sort button */}
         <TouchableOpacity
           onPress={() => setSortMenuVisible(!sortMenuVisible)}
           style={styles.sortButton}
@@ -240,7 +236,7 @@ const GroupOverview = ({ route, navigation }) => {
           <Ionicons name="options" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
-
+  
       {sortMenuVisible && (
         <View style={styles.sortMenuContainer}>
           <Text style={styles.sortMenuTitle}>Метод:</Text>
@@ -262,7 +258,7 @@ const GroupOverview = ({ route, navigation }) => {
           >
             <Text style={styles.sortMenuItemText}>По азбучен ред</Text>
           </TouchableOpacity>
-
+  
           <Text style={styles.sortMenuTitle}>Ред:</Text>
           <TouchableOpacity 
             onPress={() => handleSortOrder('asc')} 
@@ -284,8 +280,8 @@ const GroupOverview = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Профилна снимка на групата */}
+  
+      {/* Групова снимка */}
       <View style={styles.groupImageContainer}>
         {groupPicture ? (
           <Image source={{ uri: groupPicture }} style={styles.groupImage} />
@@ -299,21 +295,21 @@ const GroupOverview = ({ route, navigation }) => {
           </TouchableOpacity>
         )}
       </View>
-
-      {/* membersHeader с името на групата вляво и иконка за търсене вдясно */}
+  
+      {/* Placeholder със същата височина като груповата снимка + 10px разстояние */}
+      <View style={{ height: 200 }} />
+  
+      {/* Header за членовете – името на групата и иконка за търсене */}
       <View style={styles.membersHeader}>
         <Text style={styles.groupNameText}>{groupName}</Text>
         <TouchableOpacity onPress={() => setSearchVisible(!searchVisible)}>
           <Ionicons name="search" size={24} color="white" />
         </TouchableOpacity>
       </View>
-
-      {/* Лейбъл "Членове" вътре в контейнера */}
+  
+      {/* Контейнер за членовете */}
       <View style={styles.membersContainer}>
-
         <Text style={styles.membersTitle}>Членове</Text>
-
-        {/* Поле за търсене (ако е видимо) */}
         {searchVisible && (
           <TextInput
             style={styles.searchInput}
@@ -323,16 +319,14 @@ const GroupOverview = ({ route, navigation }) => {
             onChangeText={setSearchQuery}
           />
         )}
-
+  
         <FlatList
           data={visibleMembers}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
-            // Нормализация "guest{...}" -> "guest"
             let userRolesArray = Array.isArray(item.roles) ? item.roles : [];
             userRolesArray = userRolesArray.map(r => r.startsWith("guest{") ? "guest" : r);
-
-            // rankOrder с "hunter" най-вдясно
+  
             const rankOrder = ["admin", "chairman", "secretary", "member", "guest", "hunter"];
             let highestRole = "guest";
             for (const r of rankOrder) {
@@ -341,13 +335,12 @@ const GroupOverview = ({ route, navigation }) => {
                 break;
               }
             }
-
+  
             const roleLabel = roleTranslations[highestRole] || "Гост";
             const backgroundColor = roleColors[highestRole] || "#BDBDBD";
-
+  
             return (
               <View style={[styles.memberItem, { backgroundColor }]}>
-                {/* Профилна снимка (натискаща се -> ProfileModal) */}
                 <TouchableOpacity onPress={() => handleProfilePress(item.id)}>
                   {item.profilePicture ? (
                     <Image
@@ -363,7 +356,7 @@ const GroupOverview = ({ route, navigation }) => {
                     />
                   )}
                 </TouchableOpacity>
-
+  
                 <View style={styles.memberTextContainer}>
                   <Text style={styles.memberName}>
                     {item.firstName} {item.lastName}
@@ -376,8 +369,8 @@ const GroupOverview = ({ route, navigation }) => {
           style={styles.membersList}
         />
       </View>
-
-      {/* ProfileModal при клик на снимка */}
+  
+      {/* ProfileModal при натискане на профилна снимка */}
       {profileModalVisible && selectedUserId && (
         <ProfileModal
           userId={selectedUserId}
@@ -390,6 +383,7 @@ const GroupOverview = ({ route, navigation }) => {
       )}
     </View>
   );
+  
 };
 
 GroupOverview.propTypes = {

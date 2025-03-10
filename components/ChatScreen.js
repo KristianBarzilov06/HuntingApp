@@ -588,7 +588,10 @@ const ChatScreen = ({ route, navigation }) => {
 
       {menuVisible && (
         <View style={styles.dropdownMenu}>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.menuItem}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile', { groupId })}
+            style={styles.menuItem}
+          >
             <Ionicons name="person-circle-outline" size={24} color="white" />
             <Text style={styles.menuText}>Профил</Text>
           </TouchableOpacity>

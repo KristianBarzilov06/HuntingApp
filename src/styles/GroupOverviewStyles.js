@@ -9,10 +9,11 @@ export default StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2f3b26',
+    justifyContent: 'space-between',
     paddingHorizontal: 10,
-    paddingTop: 30,
-    paddingBottom: 10,
+    paddingTop: 35,
+    zIndex: 9,
+    backgroundColor: 'transparent',
   },
   backButton: {
     marginRight: 10,
@@ -51,15 +52,17 @@ export default StyleSheet.create({
     fontSize: 14,
   },
   groupImageContainer: {
-    marginBottom: 10,
-    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 250, // височината на груповата снимка – можеш да я регулираш
+    zIndex: 0,
   },
   groupImage: {
     width: '100%',
-    height: 170,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    backgroundColor: '#ccc',
+    height: '100%',
+    resizeMode: 'cover',
   },
   changePictureButton: {
     flexDirection: 'row',
@@ -145,4 +148,17 @@ export default StyleSheet.create({
     color: '#fff',
     fontSize: 14,
   },
+  groupProfileContainer: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  height: 200, // или височината, която желаеш
+  zIndex: 0,
+},
+groupProfileImage: {
+  width: '100%',
+  height: '100%',
+  resizeMode: 'cover',
+},
 });
