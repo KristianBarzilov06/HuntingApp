@@ -601,7 +601,7 @@ const ChatScreen = ({ route, navigation }) => {
             <Text style={styles.menuText}>Чат с гости</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => Alert.alert('Notifications feature coming soon!')} style={styles.menuItem}>
+          <TouchableOpacity onPress={() => navigation.navigate('NotificationsScreen', { groupId, groupName })} style={styles.menuItem}>
             <Ionicons name="notifications" size={24} color="white" />
             <Text style={styles.menuText}>Новини и известия</Text>
           </TouchableOpacity>
@@ -615,7 +615,12 @@ const ChatScreen = ({ route, navigation }) => {
             <Ionicons name="search" size={24} color="white" />
             <Text style={styles.menuText}>Канал за загубени/намерени кучета</Text>
           </TouchableOpacity>
-
+          { userRoles.includes("chairman") && (
+            <TouchableOpacity onPress={() => navigation.navigate('JoinRequestsScreen', { groupId, groupName })} style={styles.menuItem}>
+              <Ionicons name="clipboard" size={24} color="white" />
+              <Text style={styles.menuText}>Заявки</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={() => navigation.navigate('EventsScreen', { groupId, groupName })} style={styles.menuItem}>
             <Ionicons name="calendar" size={24} color="white" />
             <Text style={styles.menuText}>Канал за събития</Text>
