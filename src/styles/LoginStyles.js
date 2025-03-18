@@ -37,7 +37,6 @@ export default StyleSheet.create({
     alignItems: 'center',
   },
   input: {
-    width: '100%',
     width:300,
     height: 50,
     backgroundColor: '#6A7845',
@@ -93,5 +92,9 @@ export default StyleSheet.create({
     color: 'blue',
     fontSize: 16,
     textAlign: 'right',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
   },
 });

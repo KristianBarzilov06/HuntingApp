@@ -1,27 +1,26 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, setLogLevel } from "firebase/app";
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage'; // Import Firebase Storage
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStorage } from 'firebase/storage';
+import { API_KEY } from '@env';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
-// Firebase конфигурация
 const firebaseConfig = {
-  apiKey: "AIzaSyDR9KZhydET4e0PJ7vv_0t9r09rONX6wdg",
+  apiKey: API_KEY,
   authDomain: "huntingappchat-88aa7.firebaseapp.com",
   projectId: "huntingappchat-88aa7",
-  storageBucket: "huntingappchat-88aa7.appspot.com",
+  storageBucket: "huntingappchat-88aa7.firebasestorage.app",
   messagingSenderId: "1076822400965",
   appId: "1:1076822400965:web:324bf8cd4aabbb128f75ac",
   measurementId: "G-HF3N0M89VS"
 };
 
-// Инициализация на Firebase
 const app = initializeApp(firebaseConfig);
 const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
 });
+setLogLevel('debug');
 const firestore = getFirestore(app);
-const storage = getStorage(app); // Initialize Firebase Storage
+const storage = getStorage(app);
 
-// Износ на инициализираните инстанции
 export { app, auth, firestore, storage };

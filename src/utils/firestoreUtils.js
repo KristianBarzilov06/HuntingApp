@@ -1,5 +1,6 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { firestore } from '../../firebaseConfig';
+import { Alert } from 'react-native';
 
 export const saveProfileData = async (userId, profileData) => {
   try {
@@ -21,8 +22,11 @@ export const loadProfileData = async (userId) => {
       return null;
     }
   } catch (error) {
-    console.error("Грешка при зареждане на профила:", error);
-    Alert.alert("Грешка при зареждане на профила:", error.message);
+    if (typeof Alert !== 'undefined') {
+      Alert.alert("Грешка при зареждане на профила:", error.message);
+    } else {
+      console.error("Грешка при зареждане на профила:", error.message);
+    }
     return null;
   }
 };
