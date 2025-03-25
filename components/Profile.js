@@ -54,65 +54,86 @@ const Profile = ({ route, navigation, groupId }) => {
   const [showFullScreenMedia, setShowFullScreenMedia] = useState(false);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [sortMode, setSortMode] = useState({ method: 'date', order: 'asc' });
-  
-  // Нови state променливи за куче
   const [dogs, setDogs] = useState([]);
-  const [dogForm, setDogForm] = useState({ dogPicture: null, dogName: '', dogBreed: '' });
+  const [dogForm, setDogForm] = useState({
+    dogPicture: null,
+    dogName: '',
+    dogBreed: '',
+    dogBirthDate: null,
+    dogSex: 'male',
+    dogColor: '',
+    hasVaccination: false,
+    hasPassport: false,
+    skills: {
+      retrieving: false,
+      birdHunting: false,
+      hareHunting: false,
+      boarTracking: false,
+    },
+  });
+  const [selectedDog, setSelectedDog] = useState(null);
+  const [showDogDetailsModal, setShowDogDetailsModal] = useState(false);
   const [dogModalVisible, setDogModalVisible] = useState(false);
+  const [showDogBirthDatePicker, setShowDogBirthDatePicker] = useState(false);
   const [isEditingDog, setIsEditingDog] = useState(false); // true ако редактираме, false ако добавяме
   const [editingDogIndex, setEditingDogIndex] = useState(null);
   const dogOptions = [
-    'Българско гонче',              
-    'Барак',                            
-    'Дратхаар',                         
-    'Курцхаар',                         
-    'Кокершпаньол',                     
-    'Английски пойнтер',                
-    'Сетер (Ирландски, Английски, Гордон)',    
-    'Бигъл',                            
-    'Бретонски шпаньол',                
-    'Английски спрингер шпаньол',        
-    'Фоксхаунд',                        
-    'Териер (Джагдтериер, Фокстериер)',  
-    'Лайка (Руски Европейски, Западносибирски)',    
-    'Баварска планинска хрътка',        
-    'Хановерска хрътка',                
-    'Посавско гонче',                   
-    'Балканско гонче',                  
-    'Сръбско трицветно гонче',          
-];
+    'Българско гонче',
+    'Барак',
+    'Дратхаар',
+    'Курцхаар',
+    'Кокершпаньол',
+    'Английски пойнтер',
+    'Сетер (Ирландски, Английски, Гордон)',
+    'Бигъл',
+    'Бретонски шпаньол',
+    'Английски спрингер шпаньол',
+    'Фоксхаунд',
+    'Териер (Джагдтериер, Фокстериер)',
+    'Лайка (Руски Европейски, Западносибирски)',
+    'Баварска планинска хрътка',
+    'Хановерска хрътка',
+    'Посавско гонче',
+    'Балканско гонче',
+    'Сръбско трицветно гонче',
+  ];
 
-useEffect(() => {
-  const fetchProfileData = async () => {
-    try {
-      const profileData = await loadProfileData(userId);
-      if (profileData) {
-        setBio(profileData.bio || '');
-        setLicenseType(profileData.licenseType || '');
-        setHuntingLicense(profileData.huntingLicense || { start: '', end: '' });
-        setHuntingNotes(profileData.huntingNotes || { start: '', end: '' });
-        setEquipment(profileData.equipment || [{ name: '', model: '', caliber: '' }]);
-        setDogBreed(profileData.dogBreed || '');
-        setGallery(profileData.gallery || []);
-        setIsGroupHunting(profileData.isGroupHunting || false);
-        setIsSelectiveHunting(profileData.isSelectiveHunting || false);
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const profileData = await loadProfileData(userId);
+        if (profileData) {
+          setBio(profileData.bio || '');
+          setLicenseType(profileData.licenseType || '');
+          setHuntingLicense(profileData.huntingLicense || { start: '', end: '' });
+          setHuntingNotes(profileData.huntingNotes || { start: '', end: '' });
+          setEquipment(profileData.equipment || [{ name: '', model: '', caliber: '' }]);
+          setDogBreed(profileData.dogBreed || '');
+          setGallery(profileData.gallery || []);
+          setIsGroupHunting(profileData.isGroupHunting || false);
+          setIsSelectiveHunting(profileData.isSelectiveHunting || false);
 
-        setUser({
-          firstName: profileData.firstName || '',
-          lastName: profileData.lastName || '',
-          email: profileData.email || userEmail,
-          profilePicture: profileData.profilePicture || null,
-        });
-        // Зареждане на кучета от профила, ако има
-        setDogs(profileData.dogs || []);
+          setUser({
+            firstName: profileData.firstName || '',
+            lastName: profileData.lastName || '',
+            email: profileData.email || userEmail,
+            profilePicture: profileData.profilePicture || null,
+          });
+          const loadedDogs = profileData.dogs || [];
+          loadedDogs.forEach((d) => {
+            if (typeof d.dogBirthDate === 'string') {
+              d.dogBirthDate = new Date(d.dogBirthDate);
+            }
+          });
+          setDogs(loadedDogs);
+        }
+      } catch (error) {
+        console.error('Грешка при зареждане на данни:', error.message);
       }
-    } catch (error) {
-      console.error('Грешка при зареждане на данни:', error.message);
-    }
-  };
+    };
 
-  fetchProfileData();
-}, [userId]);
+    fetchProfileData();
+  }, [userId]);
 
 
   const handleSaveChanges = async () => {
@@ -344,18 +365,47 @@ useEffect(() => {
 
   const openDogModal = (dog = null, index = null) => {
     if (dog) {
-      // Редактиране – попълва формата с данните на кучето
-      setDogForm(dog);
+      setDogForm({
+        dogPicture: dog.dogPicture || null,
+        dogName: dog.dogName || '',
+        dogBreed: dog.dogBreed || '',
+        dogBirthDate: dog.dogBirthDate || null,
+        dogSex: dog.dogSex || 'male',
+        dogColor: dog.dogColor || '',
+        hasVaccination: dog.hasVaccination || false,
+        hasPassport: dog.hasPassport || false,
+        skills: dog.skills || {
+          retrieving: false,
+          birdHunting: false,
+          hareHunting: false,
+          boarTracking: false,
+        },
+      });
       setIsEditingDog(true);
       setEditingDogIndex(index);
     } else {
-      // Добавяне – изчиства формата
-      setDogForm({ dogPicture: null, dogName: '', dogBreed: '' });
+      setDogForm({
+        dogPicture: null,
+        dogName: '',
+        dogBreed: '',
+        dogBirthDate: null,
+        dogSex: 'male',
+        dogColor: '',
+        hasVaccination: false,
+        hasPassport: false,
+        skills: {
+          retrieving: false,
+          birdHunting: false,
+          hareHunting: false,
+          boarTracking: false,
+        },
+      });
       setIsEditingDog(false);
       setEditingDogIndex(null);
     }
     setDogModalVisible(true);
   };
+
   const weaponList = [
     { name: 'Blaser', model: 'R8', caliber: '.308 Winchester', type: 'carbine' },
     { name: 'Tikka', model: 'T3X', caliber: '.30-06 Springfield', type: 'carbine' },
@@ -363,25 +413,33 @@ useEffect(() => {
     { name: 'Beretta', model: 'A400', caliber: '12/76', type: 'shotgun' },
   ];
 
+  const handleDogBirthDateChange = (event, selectedDate) => {
+    setShowDogBirthDatePicker(false);
+    if (selectedDate) {
+      setDogForm({
+        ...dogForm,
+        dogBirthDate: new Date(selectedDate),
+      });
+    }
+  };
+
   const handleSaveDog = async () => {
     let updatedDogs;
     if (isEditingDog && editingDogIndex !== null) {
-      // Редактиране – обновяваме съществуващото куче
+      // Редакция
       updatedDogs = [...dogs];
       updatedDogs[editingDogIndex] = dogForm;
     } else {
-      // Добавяне – новото куче се добавя към масива
+      // Добавяне
       updatedDogs = [...dogs, dogForm];
     }
-    // Актуализираме локалния state
+
     setDogs(updatedDogs);
-    
+
     try {
-      // Обновяваме документа на потребителя във Firestore с новия масив от кучета
       const userDocRef = doc(firestore, 'users', userId);
       await updateDoc(userDocRef, { dogs: updatedDogs });
-      // Изчистваме формата и затваряме модала
-      setDogForm({ dogPicture: null, dogName: '', dogBreed: '' });
+      setDogForm({ dogPicture: null, dogName: '', dogBreed: '' /* ... */ });
       setDogModalVisible(false);
       setIsEditingDog(false);
       setEditingDogIndex(null);
@@ -390,7 +448,6 @@ useEffect(() => {
       Alert.alert('Грешка', 'Неуспешно запазване на данните за кучето.');
     }
   };
-  
 
   return (
     <View style={styles.container}>
@@ -449,41 +506,106 @@ useEffect(() => {
 
         <View style={styles.dogSection}>
           <Text style={styles.sectionTitle}>Кучета</Text>
+
           {dogs.length > 0 ? (
-            dogs.map((dog, index) => (
-              <View key={index} style={styles.dogContainer}>
-                {dog.dogPicture ? (
-                  <Image source={{ uri: dog.dogPicture }} style={styles.dogPicture} />
-                ) : (
-                  <Ionicons name="paw-outline" size={60} color="#ccc" />
-                )}
-                <View style={styles.dogInfo}>
-                  <Text style={styles.dogNameText}>{dog.dogName}</Text>
-                  <Text style={styles.dogBreedText}>{dog.dogBreed}</Text>
-                </View>
-                {isEditing && (
-                  <View style={styles.dogActions}>
-                    <TouchableOpacity onPress={() => openDogModal(dog, index)}>
-                      <Ionicons name="create-outline" size={24} color="#8FBA1D" />
-                    </TouchableOpacity>
+            dogs.map((dog, index) => {
+              const dogSkills = dog.skills || {};
+
+              return (
+                <View key={index} style={styles.dogCard}>
+                  {/* Горна част (Header): снимка, име, порода */}
+                  {/* Ако НЕ сме в режим на редакция, цялото е кликваемо -> отваря детайлен модал */}
+                  {!isEditing ? (
                     <TouchableOpacity
+                      style={styles.dogCardHeader}
                       onPress={() => {
-                        const updatedDogs = [...dogs];
-                        updatedDogs.splice(index, 1);
-                        setDogs(updatedDogs);
-                        // Запазване на изтритото куче в базата данни
-                        const userDocRef = doc(firestore, 'users', userId);
-                        updateDoc(userDocRef, { dogs: updatedDogs }).catch(error => {
-                          console.error('Грешка при изтриване на куче от базата:', error);
-                        });
+                        // Тук задавате selectedDog и отваряте новия модал showDogDetailsModal
+                        setSelectedDog(dog);
+                        setShowDogDetailsModal(true);
                       }}
                     >
-                      <Ionicons name="trash-outline" size={24} color="#c0392b" />
+                      {dog.dogPicture ? (
+                        <Image source={{ uri: dog.dogPicture }} style={styles.dogPicture} />
+                      ) : (
+                        <Ionicons name="paw-outline" size={60} color="#ccc" />
+                      )}
+
+                      <View style={styles.dogHeaderInfo}>
+                        <Text style={styles.dogNameText}>
+                          {dog.dogName || 'Без име'}
+                        </Text>
+                        <Text style={styles.dogBreedText}>
+                          {dog.dogBreed || 'Без порода'}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            ))
+                  ) : (
+                    <View style={styles.dogCardHeader}>
+                      {dog.dogPicture ? (
+                        <Image source={{ uri: dog.dogPicture }} style={styles.dogPicture} />
+                      ) : (
+                        <Ionicons name="paw-outline" size={60} color="#ccc" />
+                      )}
+
+                      <View style={styles.dogHeaderInfo}>
+                        <Text style={styles.dogNameText}>
+                          {dog.dogName || 'Без име'}
+                        </Text>
+                        <Text style={styles.dogBreedText}>
+                          {dog.dogBreed || 'Без порода'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.dogActions}>
+                        <TouchableOpacity onPress={() => openDogModal(dog, index)}>
+                          <Ionicons name="create-outline" size={24} color="#8FBA1D" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const updatedDogs = [...dogs];
+                            updatedDogs.splice(index, 1);
+                            setDogs(updatedDogs);
+                            const userDocRef = doc(firestore, 'users', userId);
+                            updateDoc(userDocRef, { dogs: updatedDogs }).catch((error) => {
+                              console.error('Грешка при изтриване на куче от базата:', error);
+                            });
+                          }}
+                        >
+                          <Ionicons name="trash-outline" size={24} color="#c0392b" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Долна част (Body) с детайлите: показваме я САМО при isEditing */}
+                  {isEditing && (
+                    <View style={styles.dogCardBody}>
+                      <Text>
+                        Пол: {dog.dogSex === 'male' ? 'Мъжко' : 'Женско'}
+                      </Text>
+                      {dog.dogBirthDate && (
+                        <Text>
+                          Родено:{" "}
+                          {new Date(dog.dogBirthDate).toLocaleDateString('bg-BG', {
+                            year: 'numeric',
+                            month: 'long',
+                          })}
+                        </Text>
+                      )}
+                      <Text>Цвят: {dog.dogColor || 'Не е посочен'}</Text>
+                      <Text>Ваксиниран: {dog.hasVaccination ? 'Да' : 'Не'}</Text>
+                      <Text>Паспорт: {dog.hasPassport ? 'Да' : 'Не'}</Text>
+
+                      <Text>Умения:</Text>
+                      {dogSkills.retrieving && <Text>- Апортиране</Text>}
+                      {dogSkills.birdHunting && <Text>- Лов на пернат дивеч</Text>}
+                      {dogSkills.hareHunting && <Text>- Лов на заек</Text>}
+                      {dogSkills.boarTracking && <Text>- Проследяване на диви свине</Text>}
+                    </View>
+                  )}
+                </View>
+              );
+            })
           ) : (
             <Text style={styles.sectionText}>Няма добавени кучета</Text>
           )}
@@ -493,8 +615,6 @@ useEffect(() => {
             </TouchableOpacity>
           )}
         </View>
-
-  
         {/* Детайли на профила */}
         <View style={styles.profileDetailsContainer}>
           <View style={styles.sectionContainer}>
@@ -511,7 +631,7 @@ useEffect(() => {
               <Text style={styles.sectionText}>{bio || 'Няма въведена биография'}</Text>
             )}
           </View>
-  
+
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Ловен лиценз</Text>
             {isEditing ? (
@@ -545,7 +665,7 @@ useEffect(() => {
               </Text>
             )}
           </View>
-  
+
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Ловна бележка</Text>
             {isEditing ? (
@@ -579,7 +699,7 @@ useEffect(() => {
               </Text>
             )}
           </View>
-  
+
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Оръжия</Text>
             {equipment.length > 0 ? (
@@ -607,7 +727,7 @@ useEffect(() => {
               </TouchableOpacity>
             )}
           </View>
-  
+
           {/* Секция за Галерия */}
           <View style={styles.sectionContainer}>
             <View style={styles.galleryHeader}>
@@ -648,7 +768,7 @@ useEffect(() => {
               <Text style={styles.sectionText}>Няма намерени медии</Text>
             )}
           </View>
-  
+
           {/* Модал за пълноекранна галерия */}
           <Modal
             visible={showGalleryModal}
@@ -754,7 +874,7 @@ useEffect(() => {
               </ScrollView>
             </View>
           </Modal>
-  
+
           {/* Модал за пълноекранно преглеждане на избраната медия */}
           {selectedMedia && (
             <Modal
@@ -796,7 +916,7 @@ useEffect(() => {
               </View>
             </Modal>
           )}
-  
+
           {/* Модал за избор на оръжие */}
           <Modal
             animationType="slide"
@@ -827,7 +947,7 @@ useEffect(() => {
               </View>
             </View>
           </Modal>
-  
+
           <TouchableOpacity
             style={styles.editButton}
             onPress={() => (isEditing ? handleSaveChanges() : setIsEditing(true))}
@@ -837,7 +957,7 @@ useEffect(() => {
             </Text>
           </TouchableOpacity>
         </View>
-  
+
         {/* Модал за добавяне на куче */}
         <Modal
           visible={dogModalVisible}
@@ -877,6 +997,137 @@ useEffect(() => {
                   <Picker.Item key={index} label={dog} value={dog} />
                 ))}
               </Picker>
+
+              <Text style={styles.dogLabel}>Дата на раждане</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowDogBirthDatePicker(true)}
+              >
+                <Text style={styles.datePickerText}>
+                  {dogForm.dogBirthDate instanceof Date
+                    ? dogForm.dogBirthDate.toLocaleDateString('bg-BG', { year: 'numeric', month: 'long' })
+                    : 'Изберете месец и година'}
+                </Text>
+              </TouchableOpacity>
+              {showDogBirthDatePicker && (
+                <DateTimePicker
+                  value={dogForm.dogBirthDate instanceof Date ? dogForm.dogBirthDate : new Date()}
+                  mode="date"
+                  display="spinner"
+                  onChange={handleDogBirthDateChange}
+                />
+              )}
+
+              <Text style={styles.dogLabel}>Пол</Text>
+              <Picker
+                selectedValue={dogForm.dogSex}
+                onValueChange={(value) => setDogForm({ ...dogForm, dogSex: value })}
+                style={styles.dogPicker}
+              >
+                <Picker.Item label="Мъжко" value="male" />
+                <Picker.Item label="Женско" value="female" />
+              </Picker>
+
+              <Text style={styles.dogLabel}>Цвят</Text>
+              <TextInput
+                style={styles.dogInput}
+                placeholder="Напр. кафяв, черен, бяло-черно..."
+                value={dogForm.dogColor}
+                onChangeText={(text) => setDogForm({ ...dogForm, dogColor: text })}
+              />
+
+              <View style={styles.checkboxRow}>
+                <TouchableOpacity
+                  onPress={() => setDogForm({ ...dogForm, hasVaccination: !dogForm.hasVaccination })}
+                  style={styles.checkboxContainer}
+                >
+                  <Ionicons
+                    name={dogForm.hasVaccination ? "checkbox" : "square-outline"}
+                    size={24}
+                    color="#555"
+                  />
+                  <Text style={styles.checkboxLabel}>Ваксиниран</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setDogForm({ ...dogForm, hasPassport: !dogForm.hasPassport })}
+                  style={styles.checkboxContainer}
+                >
+                  <Ionicons
+                    name={dogForm.hasPassport ? "checkbox" : "square-outline"}
+                    size={24}
+                    color="#555"
+                  />
+                  <Text style={styles.checkboxLabel}>Паспорт</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.dogLabel}>Умения</Text>
+              <View style={styles.checkboxRow}>
+                <TouchableOpacity
+                  onPress={() => setDogForm({
+                    ...dogForm,
+                    skills: { ...dogForm.skills, retrieving: !dogForm.skills.retrieving },
+                  })}
+                  style={styles.checkboxContainer}
+                >
+                  <Ionicons
+                    name={dogForm.skills?.retrieving ? "checkbox" : "square-outline"}
+                    size={24}
+                    color="#555"
+                  />
+                  <Text style={styles.checkboxLabel}>Апортиране</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.checkboxRow}>
+                <TouchableOpacity
+                  onPress={() => setDogForm({
+                    ...dogForm,
+                    skills: { ...dogForm.skills, birdHunting: !dogForm.skills.birdHunting },
+                  })}
+                  style={styles.checkboxContainer}
+                >
+                  <Ionicons
+                    name={dogForm.skills?.birdHunting ? "checkbox" : "square-outline"}
+                    size={24}
+                    color="#555"
+                  />
+                  <Text style={styles.checkboxLabel}>Лов на пернат дивеч</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.checkboxRow}>
+                <TouchableOpacity
+                  onPress={() => setDogForm({
+                    ...dogForm,
+                    skills: { ...dogForm.skills, hareHunting: !dogForm.skills.hareHunting },
+                  })}
+                  style={styles.checkboxContainer}
+                >
+                  <Ionicons
+                    name={dogForm.skills?.hareHunting ? "checkbox" : "square-outline"}
+                    size={24}
+                    color="#555"
+                  />
+                  <Text style={styles.checkboxLabel}>Лов на заек</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.checkboxRow}>
+                <TouchableOpacity
+                  onPress={() => setDogForm({
+                    ...dogForm,
+                    skills: { ...dogForm.skills, boarTracking: !dogForm.skills.boarTracking },
+                  })}
+                  style={styles.checkboxContainer}
+                >
+                  <Ionicons
+                    name={dogForm.skills?.boarTracking ? "checkbox" : "square-outline"}
+                    size={24}
+                    color="#555"
+                  />
+                  <Text style={styles.checkboxLabel}>Проследяване на диви свине</Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.dogModalButtons}>
                 <TouchableOpacity onPress={() => setDogModalVisible(false)} style={styles.dogCancelButton}>
                   <Text style={styles.dogCancelButtonText}>Отказ</Text>
@@ -885,6 +1136,81 @@ useEffect(() => {
                   <Text style={styles.dogSaveButtonText}>Запази</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={showDogDetailsModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowDogDetailsModal(false)}
+        >
+          <View style={styles.dogDetailsModalContainer}>
+            <View style={styles.dogDetailsModalContent}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowDogDetailsModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+
+              {selectedDog && (
+                <>
+                  {selectedDog.dogPicture ? (
+                    <Image
+                      source={{ uri: selectedDog.dogPicture }}
+                      style={styles.dogPictureModal}
+                    />
+                  ) : (
+                    <Ionicons name="paw-outline" size={80} color="#ccc" />
+                  )}
+
+                  <Text style={styles.dogNameText}>
+                    {selectedDog.dogName || 'Без име'}
+                  </Text>
+                  <Text style={styles.dogBreedText}>
+                    {selectedDog.dogBreed || 'Без порода'}
+                  </Text>
+
+                  <Text>
+                    Пол: {selectedDog.dogSex === 'male' ? 'Мъжко' : 'Женско'}
+                  </Text>
+
+                  {selectedDog.dogBirthDate && (
+                    <Text>
+                      Родено:{" "}
+                      {new Date(selectedDog.dogBirthDate).toLocaleDateString('bg-BG', {
+                        year: 'numeric',
+                        month: 'long',
+                      })}
+                    </Text>
+                  )}
+
+                  <Text>Цвят: {selectedDog.dogColor || 'Не е посочен'}</Text>
+                  <Text>Ваксиниран: {selectedDog.hasVaccination ? 'Да' : 'Не'}</Text>
+                  <Text>Паспорт: {selectedDog.hasPassport ? 'Да' : 'Не'}</Text>
+
+                  <Text>Умения:</Text>
+                  {selectedDog.skills?.retrieving && <Text>- Апортиране</Text>}
+                  {selectedDog.skills?.birdHunting && <Text>- Лов на пернат дивеч</Text>}
+                  {selectedDog.skills?.hareHunting && <Text>- Лов на заек</Text>}
+                  {selectedDog.skills?.boarTracking && <Text>- Проследяване на диви свине</Text>}
+
+                  {isEditing && (
+                    <TouchableOpacity
+                      style={styles.editDogButton}
+                      onPress={() => {
+                        setShowDogDetailsModal(false);
+                        const idx = dogs.indexOf(selectedDog);
+                        openDogModal(selectedDog, idx);
+                      }}
+                    >
+                      <Text style={styles.editDogButtonText}>Редактирай кучето</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
             </View>
           </View>
         </Modal>

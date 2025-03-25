@@ -1,6 +1,72 @@
 import { StyleSheet, Platform } from 'react-native';
 
 export default StyleSheet.create({
+  dogCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginVertical: 10,
+    padding: 10,
+    // Сенки
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  dogCardTouchArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dogPicture: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 10,
+  },
+  dogHeaderInfo: {
+    flex: 1,
+  },
+  dogActions: {
+    flexDirection: 'row',
+    marginTop: 8,
+    justifyContent: 'flex-end',
+  },
+  /* Детайлен модал */
+  dogDetailsModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dogDetailsModalContent: {
+    backgroundColor: '#fff',
+    width: '80%',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+  },
+  dogPictureModal: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 10,
+  },
+  editDogButton: {
+    marginTop: 15,
+    backgroundColor: '#007bff',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  editDogButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
   dogSection: {
     marginVertical: 15,
     paddingHorizontal: 15,
@@ -13,12 +79,6 @@ export default StyleSheet.create({
     padding: 10,
     marginBottom: 10,
   },
-  dogPicture: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 10,
-  },
   dogInfo: {
     flex: 1,
   },
@@ -30,8 +90,13 @@ export default StyleSheet.create({
     fontSize: 14,
     color: '#555',
   },
-  dogActions: {
+  dogCardHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dogCardBody: {
+    marginLeft: 10,
   },
   addDogButton: {
     backgroundColor: '#8FBA1D',
@@ -75,11 +140,6 @@ export default StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  dogPictureModal: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
   },
   dogInput: {
     borderWidth: 1,
@@ -153,6 +213,18 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1B5E20',
   },
+  
+  datePickerButton: {
+    backgroundColor: '#ddd',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+  },
   sectionContainer: {
     backgroundColor: '#2E7D32',
     padding: 10,
@@ -215,7 +287,6 @@ export default StyleSheet.create({
     color: '#fff',
   },
   fullScreenGalleryCloseButton: {
-    // Ако бутонът се позиционира в хедъра, може и да го оставим там
   },
   sortButtonContainer: {
     padding: 10,
@@ -360,19 +431,6 @@ export default StyleSheet.create({
   licenseContainer: {
     marginBottom: 15,
   },
-  datePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#8FBA1D',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  datePickerText: {
-    color: 'white',
-    marginLeft: 8,
-    fontSize: 16,
-  },
   equipmentContainer: {
     backgroundColor: '#e0e0d1',
     padding: 10,
@@ -464,13 +522,6 @@ export default StyleSheet.create({
   galleryContainer: {
     marginVertical: 10,
   },
-  closeButton: {
-    backgroundColor: '#c0392b',
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
   closeButtonText: {
     color: 'white',
     fontSize: 16,
@@ -484,5 +535,25 @@ export default StyleSheet.create({
   fullScreenMedia: {
     width: '100%',
     height: '100%',
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  checkboxLabel: {
+    marginLeft: 5,
+    fontSize: 16,
+    color: '#333',
+  },
+  dogLabel: {
+    fontSize: 16,
+    color: '#000',
+    marginVertical: 5,
   },
 });

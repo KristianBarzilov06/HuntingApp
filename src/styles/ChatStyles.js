@@ -248,4 +248,35 @@ export default StyleSheet.create({
     top: 40,
     right: 20,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionsModalContainer: {
+    width: '80%',
+    backgroundColor: '#2A3B1F',
+    borderRadius: 15,
+    paddingVertical: 20,
+    paddingHorizontal: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  optionButton: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#5A773F',
+  },
+  optionButtonLast: {
+    paddingVertical: 15,
+  },
+  optionText: {
+    fontSize: 18,
+    color: 'white',
+    textAlign: 'center',
+  },
 });
