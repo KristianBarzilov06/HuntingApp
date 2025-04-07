@@ -9,13 +9,16 @@ import {
   Alert,
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Linking
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, onSnapshot, addDoc, doc, getDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { firestore } from '../firebaseConfig';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import styles from '../src/styles/NotificationsScreenStyles';
 import PropTypes from 'prop-types';
 
@@ -25,7 +28,6 @@ const NotificationsScreen = ({ route, navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  
   // За единична дата:
   const [expirationDate, setExpirationDate] = useState(new Date());
   // За диапазон:
@@ -33,15 +35,23 @@ const NotificationsScreen = ({ route, navigation }) => {
   const [endDate, setEndDate] = useState(new Date());
   // Режим – единична дата или диапазон:
   const [isRange, setIsRange] = useState(false);
-  
-  // Контрол за видимост на DateTimePicker
+  // Избраните документи (множество):
+  const [documents, setDocuments] = useState([]);
+  // Контрол за видимост на DateTimePicker:
   const [showDatePicker, setShowDatePicker] = useState(false);
-  // Режим на избраната дата – 'single', 'start' или 'end'
+  // Режим на избраната дата – 'single', 'start' или 'end':
   const [pickerMode, setPickerMode] = useState('single');
 
   const [userRole, setUserRole] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const userId = getAuth().currentUser.uid;
+
+  // Помощна функция за нормализиране на датата (без часовете)
+  const normalizeDate = (date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
 
   // Зареждане на потребителската роля – само председателят може да създава известия
   useEffect(() => {
@@ -61,15 +71,16 @@ const NotificationsScreen = ({ route, navigation }) => {
     const unsubscribe = onSnapshot(
       collection(firestore, 'groups', groupId, 'notifications'),
       (snapshot) => {
-        const currentTime = new Date();
+        const currentDate = normalizeDate(new Date());
         const validNotifications = [];
         snapshot.docs.forEach((docSnap) => {
           const data = docSnap.data();
-          // Ако има диапазон (startDate и endDate), проверяваме крайна дата
           if (data.endDate) {
-            if (new Date(data.endDate.toDate ? data.endDate.toDate() : data.endDate) < currentTime) return;
+            const end = normalizeDate(data.endDate.toDate ? data.endDate.toDate() : data.endDate);
+            if (end < currentDate) return;
           } else if (data.expirationDate) {
-            if (new Date(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate) < currentTime) return;
+            const exp = normalizeDate(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate);
+            if (exp < currentDate) return;
           }
           validNotifications.push({ id: docSnap.id, ...data });
         });
@@ -89,14 +100,16 @@ const NotificationsScreen = ({ route, navigation }) => {
     setRefreshing(true);
     try {
       const snapshot = await getDocs(collection(firestore, 'groups', groupId, 'notifications'));
-      const currentTime = new Date();
+      const currentDate = normalizeDate(new Date());
       const validNotifications = [];
       snapshot.docs.forEach((docSnap) => {
         const data = docSnap.data();
         if (data.endDate) {
-          if (new Date(data.endDate.toDate ? data.endDate.toDate() : data.endDate) < currentTime) return;
+          const end = normalizeDate(data.endDate.toDate ? data.endDate.toDate() : data.endDate);
+          if (end < currentDate) return;
         } else if (data.expirationDate) {
-          if (new Date(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate) < currentTime) return;
+          const exp = normalizeDate(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate);
+          if (exp < currentDate) return;
         }
         validNotifications.push({ id: docSnap.id, ...data });
       });
@@ -112,7 +125,6 @@ const NotificationsScreen = ({ route, navigation }) => {
     setRefreshing(false);
   }, [groupId]);
 
-  // Обработчик за DateTimePicker
   const handleDateChange = (_, selectedDate) => {
     setShowDatePicker(false);
     if (selectedDate) {
@@ -126,7 +138,37 @@ const NotificationsScreen = ({ route, navigation }) => {
     }
   };
 
-  // Функция за създаване на ново известие с валидация
+  // Избор на документ – използва result.canceled и result.assets
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: "*/*" });
+      console.log("Избран документ:", result);
+      if (!result.canceled) {
+        const docItem = result.assets && result.assets.length > 0 ? result.assets[0] : result;
+        setDocuments(prevDocs => [...prevDocs, docItem]);
+      }
+    } catch (error) {
+      console.error("Грешка при избора на документ:", error);
+    }
+  };
+
+  const uploadDocument = async (docItem) => {
+    try {
+      console.log("Качване на документ:", docItem);
+      const response = await fetch(docItem.uri);
+      const blob = await response.blob();
+      const storageRef = ref(getStorage(), `documents/${Date.now()}_${docItem.name}`);
+      await uploadBytes(storageRef, blob);
+      const downloadUrl = await getDownloadURL(storageRef);
+      console.log("Документ качен успешно. URL:", downloadUrl);
+      return { downloadUrl, name: docItem.name };
+    } catch (error) {
+      console.error("Грешка при качване на документа:", error);
+      Alert.alert("Грешка", "Неуспешно качване на документа.");
+      return null;
+    }
+  };
+
   const createNotification = async () => {
     if (!title.trim() || !description.trim()) {
       Alert.alert("Грешка", "Моля, попълнете всички полета.");
@@ -139,23 +181,37 @@ const NotificationsScreen = ({ route, navigation }) => {
       createdBy: userId,
     };
     if (isRange) {
-      if (startDate >= endDate) {
+      if (normalizeDate(startDate) > normalizeDate(endDate)) {
         Alert.alert("Грешка", "Началната дата трябва да е по-рано от крайната дата.");
         return;
       }
-      if (endDate <= new Date()) {
+      if (normalizeDate(endDate) < normalizeDate(new Date())) {
         Alert.alert("Грешка", "Крайната дата трябва да бъде в бъдещето.");
         return;
       }
       newNotification.startDate = startDate;
       newNotification.endDate = endDate;
     } else {
-      if (expirationDate <= new Date()) {
+      if (normalizeDate(expirationDate) < normalizeDate(new Date())) {
         Alert.alert("Грешка", "Крайна дата трябва да бъде в бъдещето.");
         return;
       }
       newNotification.expirationDate = expirationDate;
     }
+    if (documents.length > 0) {
+      const uploadedDocs = [];
+      for (let docItem of documents) {
+        const docUpload = await uploadDocument(docItem);
+        if (docUpload) {
+          uploadedDocs.push(docUpload);
+        }
+      }
+      if (uploadedDocs.length > 0) {
+        newNotification.documents = uploadedDocs;
+      }
+    }
+    console.log("Новото известие:", newNotification);
+    
     try {
       await addDoc(collection(firestore, 'groups', groupId, 'notifications'), newNotification);
       setModalVisible(false);
@@ -165,6 +221,7 @@ const NotificationsScreen = ({ route, navigation }) => {
       setStartDate(new Date());
       setEndDate(new Date());
       setIsRange(false);
+      setDocuments([]);
     } catch (error) {
       Alert.alert("Грешка", "Неуспешно създаване на известието.");
       console.error("Грешка при създаване на известие:", error);
@@ -195,7 +252,7 @@ const NotificationsScreen = ({ route, navigation }) => {
   const renderNotificationItem = ({ item }) => {
     let validUntilText = "Без срок";
     if (item.startDate && item.endDate) {
-      validUntilText = `Валидно от: ${new Date(item.startDate.toDate ? item.startDate.toDate() : item.startDate).toLocaleDateString()} до: ${new Date(item.endDate.toDate ? item.endDate.toDate() : item.endDate).toLocaleString()}`;
+      validUntilText = `Валидно от: ${new Date(item.startDate.toDate ? item.startDate.toDate() : item.startDate).toLocaleDateString()} до: ${new Date(item.endDate.toDate ? item.endDate.toDate() : item.endDate).toLocaleDateString()}`;
     } else if (item.expirationDate) {
       validUntilText = `Валидно до: ${new Date(item.expirationDate.toDate ? item.expirationDate.toDate() : item.expirationDate).toLocaleDateString()}`;
     }
@@ -208,6 +265,22 @@ const NotificationsScreen = ({ route, navigation }) => {
             Създадено: {item.createdAt ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleDateString() : ""}
           </Text>
           <Text style={styles.notificationExpiration}>{validUntilText}</Text>
+          {item.documents && item.documents.length > 0 && (
+            <View style={{ marginTop: 10 }}>
+              {item.documents.map((doc, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.documentButton}
+                  onPress={() => {
+                    console.log("Отваряне на документ:", doc);
+                    Linking.openURL(doc.downloadUrl);
+                  }}
+                >
+                  <Text style={styles.documentButtonText}>Прегледай документ ({doc.name})</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
         {userRole === "chairman" && (
           <TouchableOpacity onPress={() => confirmDeleteNotification(item.id)} style={styles.deleteButton}>
@@ -220,8 +293,9 @@ const NotificationsScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Хедър, подобен на ChatScreen */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 10 }}>
           <Ionicons name="arrow-back" size={30} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{groupName} - Известия</Text>
@@ -279,7 +353,7 @@ const NotificationsScreen = ({ route, navigation }) => {
                   style={styles.datePickerButton}
                 >
                   <Text style={styles.datePickerButtonText}>
-                    Валидно до: {expirationDate ? expirationDate.toLocaleString() : "Изберете дата"}
+                    Валидно до: {expirationDate ? expirationDate.toLocaleDateString() : "Изберете дата"}
                   </Text>
                 </TouchableOpacity>
               ) : (
@@ -289,7 +363,7 @@ const NotificationsScreen = ({ route, navigation }) => {
                     style={styles.datePickerButton}
                   >
                     <Text style={styles.datePickerButtonText}>
-                      От дата: {startDate ? startDate.toLocaleString() : "Изберете начална дата"}
+                      От дата: {startDate ? startDate.toLocaleDateString() : "Изберете начална дата"}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -297,7 +371,7 @@ const NotificationsScreen = ({ route, navigation }) => {
                     style={styles.datePickerButton}
                   >
                     <Text style={styles.datePickerButtonText}>
-                      До дата: {endDate ? endDate.toLocaleString() : "Изберете крайна дата"}
+                      До дата: {endDate ? endDate.toLocaleDateString() : "Изберете крайна дата"}
                     </Text>
                   </TouchableOpacity>
                 </>
@@ -315,6 +389,20 @@ const NotificationsScreen = ({ route, navigation }) => {
                   }
                   onChange={handleDateChange}
                 />
+              )}
+              <TouchableOpacity onPress={pickDocument} style={[styles.datePickerButton, { backgroundColor: '#6c757d' }]}>
+                <Text style={styles.datePickerButtonText}>
+                  {documents.length > 0 ? "Добавени документи" : "Качи документ"}
+                </Text>
+              </TouchableOpacity>
+              {documents.length > 0 && (
+                <View style={styles.documentListContainer}>
+                  {documents.map((doc, index) => (
+                    <Text key={index} style={styles.documentListItem}>
+                      {doc.name}
+                    </Text>
+                  ))}
+                </View>
               )}
               <TouchableOpacity onPress={createNotification} style={styles.createButton}>
                 <Text style={styles.createButtonText}>Запази</Text>
