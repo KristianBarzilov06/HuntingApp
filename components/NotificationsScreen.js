@@ -25,13 +25,25 @@ const NotificationsScreen = ({ route, navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  
+  // За единична дата:
   const [expirationDate, setExpirationDate] = useState(new Date());
+  // За диапазон:
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  // Режим – единична дата или диапазон:
+  const [isRange, setIsRange] = useState(false);
+  
+  // Контрол за видимост на DateTimePicker
   const [showDatePicker, setShowDatePicker] = useState(false);
+  // Режим на избраната дата – 'single', 'start' или 'end'
+  const [pickerMode, setPickerMode] = useState('single');
+
   const [userRole, setUserRole] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const userId = getAuth().currentUser.uid;
 
-  // Зареждаме ролята на потребителя – само председателят може да създава известия
+  // Зареждане на потребителската роля – само председателят може да създава известия
   useEffect(() => {
     const fetchUserRole = async () => {
       const userRef = doc(firestore, 'users', userId);
@@ -44,7 +56,7 @@ const NotificationsScreen = ({ route, navigation }) => {
     fetchUserRole();
   }, [userId]);
 
-  // Зареждаме известията за групата чрез onSnapshot за реално време
+  // Зареждане на известията за групата в реално време
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(firestore, 'groups', groupId, 'notifications'),
@@ -53,15 +65,13 @@ const NotificationsScreen = ({ route, navigation }) => {
         const validNotifications = [];
         snapshot.docs.forEach((docSnap) => {
           const data = docSnap.data();
-          if (
-            data.expirationDate &&
-            new Date(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate) < currentTime
-          ) {
-            // Можете да изтриете изтеклите известия, ако желаете:
-            // deleteDoc(doc(firestore, 'groups', groupId, 'notifications', docSnap.id));
-          } else {
-            validNotifications.push({ id: docSnap.id, ...data });
+          // Ако има диапазон (startDate и endDate), проверяваме крайна дата
+          if (data.endDate) {
+            if (new Date(data.endDate.toDate ? data.endDate.toDate() : data.endDate) < currentTime) return;
+          } else if (data.expirationDate) {
+            if (new Date(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate) < currentTime) return;
           }
+          validNotifications.push({ id: docSnap.id, ...data });
         });
         validNotifications.sort((a, b) => {
           const dateA = a.createdAt ? new Date(a.createdAt.toDate ? a.createdAt.toDate() : a.createdAt) : 0;
@@ -75,7 +85,6 @@ const NotificationsScreen = ({ route, navigation }) => {
     return () => unsubscribe();
   }, [groupId]);
 
-  // Функция за pull-to-refresh, използваща getDocs за презареждане
   const refreshNotifications = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -84,14 +93,12 @@ const NotificationsScreen = ({ route, navigation }) => {
       const validNotifications = [];
       snapshot.docs.forEach((docSnap) => {
         const data = docSnap.data();
-        if (
-          data.expirationDate &&
-          new Date(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate) < currentTime
-        ) {
-          // Ако желаете, може да изтриете изтеклите известия тук
-        } else {
-          validNotifications.push({ id: docSnap.id, ...data });
+        if (data.endDate) {
+          if (new Date(data.endDate.toDate ? data.endDate.toDate() : data.endDate) < currentTime) return;
+        } else if (data.expirationDate) {
+          if (new Date(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate) < currentTime) return;
         }
+        validNotifications.push({ id: docSnap.id, ...data });
       });
       validNotifications.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt.toDate ? a.createdAt.toDate() : a.createdAt) : 0;
@@ -105,44 +112,65 @@ const NotificationsScreen = ({ route, navigation }) => {
     setRefreshing(false);
   }, [groupId]);
 
-  // Обработчик за DateTimePicker – избира крайна дата
+  // Обработчик за DateTimePicker
   const handleDateChange = (_, selectedDate) => {
     setShowDatePicker(false);
     if (selectedDate) {
-      setExpirationDate(selectedDate);
+      if (pickerMode === 'single') {
+        setExpirationDate(selectedDate);
+      } else if (pickerMode === 'start') {
+        setStartDate(selectedDate);
+      } else if (pickerMode === 'end') {
+        setEndDate(selectedDate);
+      }
     }
   };
 
   // Функция за създаване на ново известие с валидация
   const createNotification = async () => {
-    if (!title.trim() || !description.trim() || !expirationDate) {
+    if (!title.trim() || !description.trim()) {
       Alert.alert("Грешка", "Моля, попълнете всички полета.");
       return;
     }
-    if (expirationDate <= new Date()) {
-      Alert.alert("Грешка", "Крайна дата трябва да бъде в бъдещето.");
-      return;
-    }
-    const newNotification = {
+    let newNotification = {
       title: title.trim(),
       description: description.trim(),
       createdAt: new Date(),
-      expirationDate,
       createdBy: userId,
     };
+    if (isRange) {
+      if (startDate >= endDate) {
+        Alert.alert("Грешка", "Началната дата трябва да е по-рано от крайната дата.");
+        return;
+      }
+      if (endDate <= new Date()) {
+        Alert.alert("Грешка", "Крайната дата трябва да бъде в бъдещето.");
+        return;
+      }
+      newNotification.startDate = startDate;
+      newNotification.endDate = endDate;
+    } else {
+      if (expirationDate <= new Date()) {
+        Alert.alert("Грешка", "Крайна дата трябва да бъде в бъдещето.");
+        return;
+      }
+      newNotification.expirationDate = expirationDate;
+    }
     try {
       await addDoc(collection(firestore, 'groups', groupId, 'notifications'), newNotification);
       setModalVisible(false);
       setTitle('');
       setDescription('');
       setExpirationDate(new Date());
+      setStartDate(new Date());
+      setEndDate(new Date());
+      setIsRange(false);
     } catch (error) {
       Alert.alert("Грешка", "Неуспешно създаване на известието.");
       console.error("Грешка при създаване на известие:", error);
     }
   };
 
-  // Потвърждение и функция за изтриване на известие
   const confirmDeleteNotification = (notificationId) => {
     Alert.alert(
       "Потвърждение",
@@ -164,26 +192,31 @@ const NotificationsScreen = ({ route, navigation }) => {
     }
   };
 
-  // Рендериране на един елемент от списъка с известия
-  const renderNotificationItem = ({ item }) => (
-    <View style={styles.notificationItem}>
-      <View style={styles.notificationContent}>
-        <Text style={styles.notificationTitle}>{item.title}</Text>
-        <Text style={styles.notificationDescription}>{item.description}</Text>
-        <Text style={styles.notificationDate}>
-          Създадено: {item.createdAt ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleString() : ""}
-        </Text>
-        <Text style={styles.notificationExpiration}>
-          Валидно до: {item.expirationDate ? new Date(item.expirationDate.toDate ? item.expirationDate.toDate() : item.expirationDate).toLocaleString() : "Без срок"}
-        </Text>
+  const renderNotificationItem = ({ item }) => {
+    let validUntilText = "Без срок";
+    if (item.startDate && item.endDate) {
+      validUntilText = `Валидно от: ${new Date(item.startDate.toDate ? item.startDate.toDate() : item.startDate).toLocaleDateString()} до: ${new Date(item.endDate.toDate ? item.endDate.toDate() : item.endDate).toLocaleString()}`;
+    } else if (item.expirationDate) {
+      validUntilText = `Валидно до: ${new Date(item.expirationDate.toDate ? item.expirationDate.toDate() : item.expirationDate).toLocaleDateString()}`;
+    }
+    return (
+      <View style={styles.notificationItem}>
+        <View style={styles.notificationContent}>
+          <Text style={styles.notificationTitle}>{item.title}</Text>
+          <Text style={styles.notificationDescription}>{item.description}</Text>
+          <Text style={styles.notificationDate}>
+            Създадено: {item.createdAt ? new Date(item.createdAt.toDate ? item.createdAt.toDate() : item.createdAt).toLocaleDateString() : ""}
+          </Text>
+          <Text style={styles.notificationExpiration}>{validUntilText}</Text>
+        </View>
+        {userRole === "chairman" && (
+          <TouchableOpacity onPress={() => confirmDeleteNotification(item.id)} style={styles.deleteButton}>
+            <Ionicons name="trash" size={24} color="white" />
+          </TouchableOpacity>
+        )}
       </View>
-      {userRole === "chairman" && (
-        <TouchableOpacity onPress={() => confirmDeleteNotification(item.id)} style={styles.deleteButton}>
-          <Ionicons name="trash" size={24} color="white" />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -226,14 +259,60 @@ const NotificationsScreen = ({ route, navigation }) => {
                 onChangeText={setDescription}
                 multiline
               />
-              <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerButton}>
-                <Text style={styles.datePickerButtonText}>Изберете крайна дата за валидност</Text>
-              </TouchableOpacity>
+              <View style={styles.dateTypeContainer}>
+                <TouchableOpacity
+                  style={[styles.dateTypeButton, !isRange && styles.dateTypeButtonActive]}
+                  onPress={() => setIsRange(false)}
+                >
+                  <Text style={styles.dateTypeButtonText}>Единична дата</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.dateTypeButton, isRange && styles.dateTypeButtonActive]}
+                  onPress={() => setIsRange(true)}
+                >
+                  <Text style={styles.dateTypeButtonText}>Диапазон</Text>
+                </TouchableOpacity>
+              </View>
+              {!isRange ? (
+                <TouchableOpacity
+                  onPress={() => { setPickerMode('single'); setShowDatePicker(true); }}
+                  style={styles.datePickerButton}
+                >
+                  <Text style={styles.datePickerButtonText}>
+                    Валидно до: {expirationDate ? expirationDate.toLocaleString() : "Изберете дата"}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    onPress={() => { setPickerMode('start'); setShowDatePicker(true); }}
+                    style={styles.datePickerButton}
+                  >
+                    <Text style={styles.datePickerButtonText}>
+                      От дата: {startDate ? startDate.toLocaleString() : "Изберете начална дата"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => { setPickerMode('end'); setShowDatePicker(true); }}
+                    style={styles.datePickerButton}
+                  >
+                    <Text style={styles.datePickerButtonText}>
+                      До дата: {endDate ? endDate.toLocaleString() : "Изберете крайна дата"}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
               {showDatePicker && (
                 <DateTimePicker
                   mode="date"
                   display="default"
-                  value={expirationDate}
+                  value={
+                    pickerMode === 'single'
+                      ? expirationDate
+                      : pickerMode === 'start'
+                      ? startDate
+                      : endDate
+                  }
                   onChange={handleDateChange}
                 />
               )}
