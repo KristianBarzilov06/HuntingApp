@@ -248,6 +248,21 @@ export default StyleSheet.create({
     color: '#333',
     marginLeft: 10,
   },
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '80%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+  },
   /* Контейнер за снимката */
   adImageContainer: {
     backgroundColor: '#CED095',
@@ -320,7 +335,7 @@ export default StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#000',
-    flexShrink: 1, 
+    flexShrink: 1,
   },
   adUserGroup: {
     fontSize: 14,
@@ -341,5 +356,72 @@ export default StyleSheet.create({
   adMessageButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  chatListModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 20,
+    justifyContent: 'center',
+  },
+  chatListModalTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  chatListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2A3B1F',
+    borderRadius: 10,
+    padding: 10,
+    marginVertical: 5,
+  },
+  chatListItemInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chatListProfilePhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  chatListTextContainer: {
+    flex: 1,
+  },
+  chatListAdTitle: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  chatListSellerName: {
+    color: '#ccc',
+    fontSize: 14,
+  },
+  chatListOpenButton: {
+    backgroundColor: '#76A325',
+    padding: 10,
+    borderRadius: 10,
+  },
+  chatListCloseButton: {
+    backgroundColor: '#D9534F',
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 15,
+    alignSelf: 'center',
+  },
+  chatListCloseButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  chatListDeleteButton: {
+    backgroundColor: '#D9534F',
+    padding: 10,
+    borderRadius: 10,
+    marginLeft: 10,
   },
 });

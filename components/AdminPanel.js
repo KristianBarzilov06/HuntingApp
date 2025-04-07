@@ -123,15 +123,15 @@ const AdminPanel = ({ navigation, route }) => {
     const db = getFirestore();
     const auth = getAuth();
     const user = auth.currentUser;
-  
+
     if (!user) {
       console.log("⚠️ Няма влезнал потребител.");
       return;
     }
-  
+
     const userID = user.uid;
     const userRef = doc(db, "users", userID);
-  
+
     try {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
@@ -151,7 +151,7 @@ const AdminPanel = ({ navigation, route }) => {
     } catch (error) {
       console.error("❌ Грешка при зареждане на ролята:", error);
     }
-  };  
+  };
 
   // Функция за добавяне на нова група
   const addNewGroup = async () => {
@@ -369,7 +369,7 @@ const AdminPanel = ({ navigation, route }) => {
     if (selectedDate) {
       setEditedUser(prevState => ({
         ...prevState,
-        huntingLicense: { 
+        huntingLicense: {
           ...prevState.huntingLicense,
           start: selectedDate.toISOString().split('T')[0]
         }
@@ -382,7 +382,7 @@ const AdminPanel = ({ navigation, route }) => {
     if (selectedDate) {
       setEditedUser(prevState => ({
         ...prevState,
-        huntingNotes: { 
+        huntingNotes: {
           ...prevState.huntingNotes,
           start: selectedDate.toISOString().split('T')[0]
         }
@@ -633,8 +633,8 @@ const AdminPanel = ({ navigation, route }) => {
         <View style={styles.modalContainer}>
           <KeyboardAvoidingView behavior="padding" style={styles.keyboardAvoidingContainer}>
             <View style={styles.modalContent}>
-              <ScrollView 
-                style={styles.modalScroll} 
+              <ScrollView
+                style={styles.modalScroll}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
@@ -649,23 +649,23 @@ const AdminPanel = ({ navigation, route }) => {
                 </TouchableOpacity>
                 {/* Полета за редакция */}
                 <View style={styles.inputRow}>
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Име" 
-                    value={editedUser.firstName} 
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Име"
+                    value={editedUser.firstName}
                     onChangeText={(text) => setEditedUser({ ...editedUser, firstName: text })}
                   />
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Фамилия" 
-                    value={editedUser.lastName} 
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Фамилия"
+                    value={editedUser.lastName}
                     onChangeText={(text) => setEditedUser({ ...editedUser, lastName: text })}
                   />
                 </View>
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Имейл" 
-                  value={editedUser.email} 
+                <TextInput
+                  style={styles.input}
+                  placeholder="Имейл"
+                  value={editedUser.email}
                   onChangeText={(text) => setEditedUser({ ...editedUser, email: text })}
                 />
                 {/* Биография */}
@@ -685,7 +685,7 @@ const AdminPanel = ({ navigation, route }) => {
                     const isSelected = userRoles.includes(roleKey);
                     const isLockedRole = roleKey === "hunter";
                     return (
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         key={roleKey}
                         style={[
                           styles.roleItem,
@@ -780,7 +780,7 @@ const AdminPanel = ({ navigation, route }) => {
                 </View>
                 {/* Избор на куче */}
                 <Text style={styles.modalLabel}>Куче:</Text>
-                <Picker selectedValue={editedUser.dogBreed} onValueChange={(value) => setEditedUser({ ...editedUser, dogBreed: value })} 
+                <Picker selectedValue={editedUser.dogBreed} onValueChange={(value) => setEditedUser({ ...editedUser, dogBreed: value })}
                   style={styles.picker}
                 >
                   <Picker.Item label="Дратхаар" value="Дратхаар" />
@@ -789,15 +789,15 @@ const AdminPanel = ({ navigation, route }) => {
                 </Picker>
                 {/* Чекбокс */}
                 <View style={styles.checkboxContainer}>
-                  <Checkbox 
-                    status={editedUser.isGroupHunting ? 'checked' : 'unchecked'} 
+                  <Checkbox
+                    status={editedUser.isGroupHunting ? 'checked' : 'unchecked'}
                     onPress={() => setEditedUser({ ...editedUser, isGroupHunting: !editedUser.isGroupHunting })}
                   />
                   <Text>Групов лов</Text>
                 </View>
                 <View style={styles.checkboxContainer}>
-                  <Checkbox 
-                    status={editedUser.isSelectiveHunting ? 'checked' : 'unchecked'} 
+                  <Checkbox
+                    status={editedUser.isSelectiveHunting ? 'checked' : 'unchecked'}
                     onPress={() => setEditedUser({ ...editedUser, isSelectiveHunting: !editedUser.isSelectiveHunting })}
                   />
                   <Text>Подборен лов</Text>
@@ -806,43 +806,43 @@ const AdminPanel = ({ navigation, route }) => {
                 <Text style={styles.modalLabel}>Оборудване:</Text>
                 {editedUser.equipment?.map((eq, index) => (
                   <View key={index} style={styles.equipmentContainer}>
-                    <TextInput 
-                      style={styles.input} 
-                      placeholder="Име" 
-                      value={eq.name} 
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Име"
+                      value={eq.name}
                       onChangeText={(text) => {
                         const newEquipment = [...editedUser.equipment];
                         newEquipment[index].name = text;
                         setEditedUser({ ...editedUser, equipment: newEquipment });
-                      }} 
+                      }}
                     />
-                    <TextInput 
-                      style={styles.input} 
-                      placeholder="Модел" 
-                      value={eq.model} 
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Модел"
+                      value={eq.model}
                       onChangeText={(text) => {
                         const newEquipment = [...editedUser.equipment];
                         newEquipment[index].model = text;
                         setEditedUser({ ...editedUser, equipment: newEquipment });
-                      }} 
+                      }}
                     />
-                    <TextInput 
-                      style={styles.input} 
-                      placeholder="Калибър" 
-                      value={eq.caliber} 
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Калибър"
+                      value={eq.caliber}
                       onChangeText={(text) => {
                         const newEquipment = [...editedUser.equipment];
                         newEquipment[index].caliber = text;
                         setEditedUser({ ...editedUser, equipment: newEquipment });
-                      }} 
+                      }}
                     />
                     <TouchableOpacity onPress={() => handleDeleteEquipment(index)} style={styles.deleteEquipmentButton}>
                       <Ionicons name="trash-outline" size={20} color="red" />
                     </TouchableOpacity>
                   </View>
                 ))}
-                <TouchableOpacity 
-                  style={styles.addEquipmentButton} 
+                <TouchableOpacity
+                  style={styles.addEquipmentButton}
                   onPress={() => setEditedUser({ ...editedUser, equipment: [...editedUser.equipment, { name: '', model: '', caliber: '' }] })}
                 >
                   <Ionicons name="add-circle-outline" size={20} color="white" />
@@ -885,10 +885,10 @@ const AdminPanel = ({ navigation, route }) => {
                           <Text style={styles.groupName}>{group.name}</Text>
                         </TouchableOpacity>
                         <View style={styles.groupIcons}>
-                          <Ionicons 
-                            name={selectedGroup === group.id ? "arrow-up" : "arrow-down"} 
-                            size={20} 
-                            color="black" 
+                          <Ionicons
+                            name={selectedGroup === group.id ? "arrow-up" : "arrow-down"}
+                            size={20}
+                            color="black"
                             onPress={() => toggleGroup(group)}
                           />
                           {userRole === "admin" && (

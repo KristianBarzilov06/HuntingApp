@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  FlatList, 
-  Modal, 
-  TextInput, 
-  Alert, 
-  ScrollView, 
-  KeyboardAvoidingView, 
-  Platform 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Modal,
+  TextInput,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, onSnapshot, addDoc, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, getDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { firestore } from '../firebaseConfig';
 import styles from '../src/styles/NotificationsScreenStyles';
@@ -28,6 +28,7 @@ const NotificationsScreen = ({ route, navigation }) => {
   const [expirationDate, setExpirationDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [userRole, setUserRole] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const userId = getAuth().currentUser.uid;
 
   // Зареждаме ролята на потребителя – само председателят може да създава известия
@@ -43,7 +44,7 @@ const NotificationsScreen = ({ route, navigation }) => {
     fetchUserRole();
   }, [userId]);
 
-  // Зареждаме известията за групата и автоматично изтриваме изтеклите
+  // Зареждаме известията за групата чрез onSnapshot за реално време
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(firestore, 'groups', groupId, 'notifications'),
@@ -56,7 +57,8 @@ const NotificationsScreen = ({ route, navigation }) => {
             data.expirationDate &&
             new Date(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate) < currentTime
           ) {
-            deleteDoc(doc(firestore, 'groups', groupId, 'notifications', docSnap.id));
+            // Можете да изтриете изтеклите известия, ако желаете:
+            // deleteDoc(doc(firestore, 'groups', groupId, 'notifications', docSnap.id));
           } else {
             validNotifications.push({ id: docSnap.id, ...data });
           }
@@ -73,7 +75,37 @@ const NotificationsScreen = ({ route, navigation }) => {
     return () => unsubscribe();
   }, [groupId]);
 
-  // Опростен обработчик за DateTimePicker – избира само крайна дата
+  // Функция за pull-to-refresh, използваща getDocs за презареждане
+  const refreshNotifications = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const snapshot = await getDocs(collection(firestore, 'groups', groupId, 'notifications'));
+      const currentTime = new Date();
+      const validNotifications = [];
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (
+          data.expirationDate &&
+          new Date(data.expirationDate.toDate ? data.expirationDate.toDate() : data.expirationDate) < currentTime
+        ) {
+          // Ако желаете, може да изтриете изтеклите известия тук
+        } else {
+          validNotifications.push({ id: docSnap.id, ...data });
+        }
+      });
+      validNotifications.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt.toDate ? a.createdAt.toDate() : a.createdAt) : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt.toDate ? b.createdAt.toDate() : b.createdAt) : 0;
+        return dateB - dateA;
+      });
+      setNotifications(validNotifications);
+    } catch (error) {
+      console.error("Error refreshing notifications:", error);
+    }
+    setRefreshing(false);
+  }, [groupId]);
+
+  // Обработчик за DateTimePicker – избира крайна дата
   const handleDateChange = (_, selectedDate) => {
     setShowDatePicker(false);
     if (selectedDate) {
@@ -171,6 +203,8 @@ const NotificationsScreen = ({ route, navigation }) => {
         data={notifications}
         keyExtractor={(item) => item.id}
         renderItem={renderNotificationItem}
+        refreshing={refreshing}
+        onRefresh={refreshNotifications}
       />
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.centeredView}>
@@ -197,10 +231,10 @@ const NotificationsScreen = ({ route, navigation }) => {
               </TouchableOpacity>
               {showDatePicker && (
                 <DateTimePicker
-                mode="date"
-                display="default"
-                value={expirationDate}
-                onChange={handleDateChange}
+                  mode="date"
+                  display="default"
+                  value={expirationDate}
+                  onChange={handleDateChange}
                 />
               )}
               <TouchableOpacity onPress={createNotification} style={styles.createButton}>

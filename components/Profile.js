@@ -31,6 +31,7 @@ const Profile = ({ route, navigation, groupId }) => {
     lastName: '',
     email: userEmail,
     profilePicture: null,
+    phone: '',
   });
 
   // Полета за профила
@@ -118,6 +119,7 @@ const Profile = ({ route, navigation, groupId }) => {
             lastName: profileData.lastName || '',
             email: profileData.email || userEmail,
             profilePicture: profileData.profilePicture || null,
+            phone: profileData.phone || '',
           });
           const loadedDogs = profileData.dogs || [];
           loadedDogs.forEach((d) => {
@@ -135,11 +137,17 @@ const Profile = ({ route, navigation, groupId }) => {
     fetchProfileData();
   }, [userId]);
 
+  useEffect(() => {
+    if (route.params?.firstTime) {
+      setIsEditing(true);
+    }
+  }, [route.params?.firstTime]);
 
   const handleSaveChanges = async () => {
     const profileData = {
       firstName: user.firstName,
       lastName: user.lastName,
+      phone: user.phone || '',
       bio,
       licenseType,
       huntingLicense,
@@ -151,7 +159,7 @@ const Profile = ({ route, navigation, groupId }) => {
       isSelectiveHunting,
       profilePicture: newProfilePicture || user.profilePicture,
     };
-
+  
     try {
       if (newProfilePicture) {
         const storage = getStorage();
@@ -165,22 +173,30 @@ const Profile = ({ route, navigation, groupId }) => {
         const downloadUrl = await getDownloadURL(fileRef);
         profileData.profilePicture = downloadUrl;
       }
-
+  
       await saveProfileData(userId, profileData);
       setUser((prevUser) => ({ ...prevUser, profilePicture: profileData.profilePicture }));
-      setIsEditing(false);
+  
+      // Ако това е първото конфигуриране, уведомяваме потребителя и го пренасочваме към Login.
+      if (route.params?.firstTime) {
+        Alert.alert('Профилът е конфигуриран. Моля, влезте в акаунта си.');
+        navigation.replace('Login');
+      } else {
+        setIsEditing(false);
+      }
     } catch (error) {
       console.error('Грешка при запазването:', error.message);
       Alert.alert('Грешка', 'Неуспешно записване на профила.');
     }
   };
+  
 
   useEffect(() => {
     const fetchGalleryMedia = async () => {
       try {
         const currentGroupId = route.params?.groupId || groupId;
         if (!currentGroupId) {
-          console.warn("Няма зададен groupId. Пропускаме извличането на медийните файлове.");
+          setGalleryMedia([]);
           return;
         }
         const messagesRef = collection(firestore, 'groups', currentGroupId, 'messages');
@@ -205,7 +221,7 @@ const Profile = ({ route, navigation, groupId }) => {
       }
     };
     fetchGalleryMedia();
-  }, [userId, route.params?.groupId, groupId]);
+  }, [userId, route.params?.groupId, groupId]);  
 
   useEffect(() => {
     const sortedMedia = [...galleryMedia].sort((a, b) => {
@@ -501,6 +517,20 @@ const Profile = ({ route, navigation, groupId }) => {
               <Ionicons name="mail" size={16} color="#ccc" />
               <Text style={styles.userEmail}>{user.email}</Text>
             </View>
+            {isEditing ? (
+              <TextInput
+                style={styles.input} // или нов стил за телефон
+                placeholder="Телефонен номер"
+                value={user.phone}
+                onChangeText={(text) => setUser({ ...user, phone: text })}
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <View style={styles.phoneContainer}>
+                <Ionicons name="call" size={16} color="#ccc" />
+                <Text style={styles.userPhone}>{user.phone}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -1223,6 +1253,7 @@ Profile.propTypes = {
   route: PropTypes.shape({
     params: PropTypes.shape({
       userEmail: PropTypes.string,
+      firstTime: PropTypes.bool,
       profileUserId: PropTypes.string,
       groupId: PropTypes.string,
     }),
@@ -1230,8 +1261,10 @@ Profile.propTypes = {
   navigation: PropTypes.shape({
     goBack: PropTypes.func.isRequired,
     reset: PropTypes.func.isRequired,
+    replace: PropTypes.func.isRequired,
   }).isRequired,
   groupId: PropTypes.string,
 };
+
 
 export default Profile;

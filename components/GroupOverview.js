@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { 
-  View, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
-  FlatList, 
-  Alert, 
-  TextInput 
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  FlatList,
+  Alert,
+  TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import roleColors from '../src/styles/roleColors'; 
+import roleColors from '../src/styles/roleColors';
 import styles from '../src/styles/GroupOverviewStyles';
 import ProfileModal from '../components/ProfileModal';
 
@@ -73,7 +73,7 @@ const GroupOverview = ({ route, navigation }) => {
       let loadedMembers = [];
       for (const docSnap of membersSnap.docs) {
         const memberData = docSnap.data();
-        const userId = docSnap.id; 
+        const userId = docSnap.id;
 
         // Търсим документа от "users"
         const userRef = doc(db, "users", userId);
@@ -236,12 +236,12 @@ const GroupOverview = ({ route, navigation }) => {
           <Ionicons name="options" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
-  
+
       {sortMenuVisible && (
         <View style={styles.sortMenuContainer}>
           <Text style={styles.sortMenuTitle}>Метод:</Text>
-          <TouchableOpacity 
-            onPress={() => handleSortMethod('rank')} 
+          <TouchableOpacity
+            onPress={() => handleSortMethod('rank')}
             style={[
               styles.sortMenuItem,
               isSelectedMethod('rank') && styles.sortMenuItemSelected
@@ -249,8 +249,8 @@ const GroupOverview = ({ route, navigation }) => {
           >
             <Text style={styles.sortMenuItemText}>По ранг</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => handleSortMethod('alphabet')} 
+          <TouchableOpacity
+            onPress={() => handleSortMethod('alphabet')}
             style={[
               styles.sortMenuItem,
               isSelectedMethod('alphabet') && styles.sortMenuItemSelected
@@ -258,10 +258,10 @@ const GroupOverview = ({ route, navigation }) => {
           >
             <Text style={styles.sortMenuItemText}>По азбучен ред</Text>
           </TouchableOpacity>
-  
+
           <Text style={styles.sortMenuTitle}>Ред:</Text>
-          <TouchableOpacity 
-            onPress={() => handleSortOrder('asc')} 
+          <TouchableOpacity
+            onPress={() => handleSortOrder('asc')}
             style={[
               styles.sortMenuItem,
               isSelectedOrder('asc') && styles.sortMenuItemSelected
@@ -269,8 +269,8 @@ const GroupOverview = ({ route, navigation }) => {
           >
             <Text style={styles.sortMenuItemText}>Възходящо</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => handleSortOrder('desc')} 
+          <TouchableOpacity
+            onPress={() => handleSortOrder('desc')}
             style={[
               styles.sortMenuItem,
               isSelectedOrder('desc') && styles.sortMenuItemSelected
@@ -280,7 +280,7 @@ const GroupOverview = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       )}
-  
+
       {/* Групова снимка */}
       <View style={styles.groupImageContainer}>
         {groupPicture ? (
@@ -295,10 +295,10 @@ const GroupOverview = ({ route, navigation }) => {
           </TouchableOpacity>
         )}
       </View>
-  
+
       {/* Placeholder със същата височина като груповата снимка + 10px разстояние */}
       <View style={{ height: 200 }} />
-  
+
       {/* Header за членовете – името на групата и иконка за търсене */}
       <View style={styles.membersHeader}>
         <Text style={styles.groupNameText}>{groupName}</Text>
@@ -306,7 +306,7 @@ const GroupOverview = ({ route, navigation }) => {
           <Ionicons name="search" size={24} color="white" />
         </TouchableOpacity>
       </View>
-  
+
       {/* Контейнер за членовете */}
       <View style={styles.membersContainer}>
         <Text style={styles.membersTitle}>Членове</Text>
@@ -319,14 +319,14 @@ const GroupOverview = ({ route, navigation }) => {
             onChangeText={setSearchQuery}
           />
         )}
-  
+
         <FlatList
           data={visibleMembers}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
             let userRolesArray = Array.isArray(item.roles) ? item.roles : [];
             userRolesArray = userRolesArray.map(r => r.startsWith("guest{") ? "guest" : r);
-  
+
             const rankOrder = ["admin", "chairman", "secretary", "member", "guest", "hunter"];
             let highestRole = "guest";
             for (const r of rankOrder) {
@@ -335,10 +335,10 @@ const GroupOverview = ({ route, navigation }) => {
                 break;
               }
             }
-  
+
             const roleLabel = roleTranslations[highestRole] || "Гост";
             const backgroundColor = roleColors[highestRole] || "#BDBDBD";
-  
+
             return (
               <View style={[styles.memberItem, { backgroundColor }]}>
                 <TouchableOpacity onPress={() => handleProfilePress(item.id)}>
@@ -356,7 +356,7 @@ const GroupOverview = ({ route, navigation }) => {
                     />
                   )}
                 </TouchableOpacity>
-  
+
                 <View style={styles.memberTextContainer}>
                   <Text style={styles.memberName}>
                     {item.firstName} {item.lastName}
@@ -369,7 +369,7 @@ const GroupOverview = ({ route, navigation }) => {
           style={styles.membersList}
         />
       </View>
-  
+
       {/* ProfileModal при натискане на профилна снимка */}
       {profileModalVisible && selectedUserId && (
         <ProfileModal
@@ -383,7 +383,7 @@ const GroupOverview = ({ route, navigation }) => {
       )}
     </View>
   );
-  
+
 };
 
 GroupOverview.propTypes = {

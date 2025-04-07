@@ -108,85 +108,85 @@ const ProfileModal = ({ userId, visible, onClose }) => {
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
-  
+
           {loading ? (
             <ActivityIndicator size="large" color="#FFD700" />
           ) : (
             <>
-            <View style={styles.headerContainer}>
-            {filteredData.profilePicture ? (
-                <Image source={{ uri: filteredData.profilePicture }} style={styles.profilePicture} />
-            ) : (
-                <Ionicons name="person-circle" size={80} color="gray" />
-            )}
-
-            <View style={styles.nameContainer}>
-                <Text style={[styles.userName, { color: nameColor }]}>
-                {filteredData.firstName} {filteredData.lastName}
-                </Text>
-                {filteredData.email && (
-                <Text style={styles.userEmail}>{filteredData.email}</Text>
+              <View style={styles.headerContainer}>
+                {filteredData.profilePicture ? (
+                  <Image source={{ uri: filteredData.profilePicture }} style={styles.profilePicture} />
+                ) : (
+                  <Ionicons name="person-circle" size={80} color="gray" />
                 )}
-            </View>
-            </View>
 
-            <View style={styles.detailsContainer}>
-            {filteredData.bio && (
-                <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>📜 Описание</Text>
-                <Text style={styles.infoText}>{filteredData.bio}</Text>
+                <View style={styles.nameContainer}>
+                  <Text style={[styles.userName, { color: nameColor }]}>
+                    {filteredData.firstName} {filteredData.lastName}
+                  </Text>
+                  {filteredData.email && (
+                    <Text style={styles.userEmail}>{filteredData.email}</Text>
+                  )}
                 </View>
-            )}
+              </View>
 
-            {filteredData.dogBreed && (
+              <View style={styles.detailsContainer}>
+                {filteredData.bio && (
+                  <View style={styles.infoCard}>
+                    <Text style={styles.infoLabel}>📜 Описание</Text>
+                    <Text style={styles.infoText}>{filteredData.bio}</Text>
+                  </View>
+                )}
+
+                {filteredData.dogBreed && (
+                  <View style={styles.infoCard}>
+                    <Text style={styles.infoLabel}>🐕 Куче</Text>
+                    <Text style={styles.infoText}>{filteredData.dogBreed}</Text>
+                  </View>
+                )}
+
+                {/* ЛИЦЕНЗ - Групов лов и Подборен лов */}
                 <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>🐕 Куче</Text>
-                <Text style={styles.infoText}>{filteredData.dogBreed}</Text>
+                  <Text style={styles.infoLabel}>🛡️ Лиценз</Text>
+                  <Text style={styles.infoText}>
+                    Групов лов - {filteredData.isGroupHunting ? "✅ Разрешен" : "❌ Не е разрешен"}
+                  </Text>
+                  <Text style={styles.infoText}>
+                    Подборен лов - {filteredData.isSelectiveHunting ? "✅ Разрешен" : "❌ Не е разрешен"}
+                  </Text>
                 </View>
-            )}
 
-            {/* ЛИЦЕНЗ - Групов лов и Подборен лов */}
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>🛡️ Лиценз</Text>
-              <Text style={styles.infoText}>
-                Групов лов - {filteredData.isGroupHunting ? "✅ Разрешен" : "❌ Не е разрешен"}
-              </Text>
-              <Text style={styles.infoText}>
-                Подборен лов - {filteredData.isSelectiveHunting ? "✅ Разрешен" : "❌ Не е разрешен"}
-              </Text>
-            </View>
-
-            {/* Ловен билет */}
-            {filteredData.huntingLicense && (
-                <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>🎯 Ловен билет</Text>
-                <Text style={styles.infoText}>
-                    {filteredData.huntingLicense.start} - {filteredData.huntingLicense.end}
-                </Text>
-                </View>
-            )}
-
-            {/* Ловна бележка */}
-            {filteredData.huntingNotes && (
-                <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>📖 Ловна бележка</Text>
-                <Text style={styles.infoText}>
-                    {filteredData.huntingNotes.start} - {filteredData.huntingNotes.end}
-                </Text>
-                </View>
-            )}
-
-            {filteredData.equipment && filteredData.equipment.length > 0 && (
-                <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>🔫 Снаряжение</Text>
-                {filteredData.equipment.map((item, index) => (
-                    <Text key={index} style={styles.infoText}>
-                    {item.name} {item.model} ({item.caliber}) - {item.type}
+                {/* Ловен билет */}
+                {filteredData.huntingLicense && (
+                  <View style={styles.infoCard}>
+                    <Text style={styles.infoLabel}>🎯 Ловен билет</Text>
+                    <Text style={styles.infoText}>
+                      {filteredData.huntingLicense.start} - {filteredData.huntingLicense.end}
                     </Text>
-                ))}
-                </View>
-            )}
-            </View>
+                  </View>
+                )}
+
+                {/* Ловна бележка */}
+                {filteredData.huntingNotes && (
+                  <View style={styles.infoCard}>
+                    <Text style={styles.infoLabel}>📖 Ловна бележка</Text>
+                    <Text style={styles.infoText}>
+                      {filteredData.huntingNotes.start} - {filteredData.huntingNotes.end}
+                    </Text>
+                  </View>
+                )}
+
+                {filteredData.equipment && filteredData.equipment.length > 0 && (
+                  <View style={styles.infoCard}>
+                    <Text style={styles.infoLabel}>🔫 Снаряжение</Text>
+                    {filteredData.equipment.map((item, index) => (
+                      <Text key={index} style={styles.infoText}>
+                        {item.name} {item.model} ({item.caliber}) - {item.type}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
             </>
           )}
         </View>

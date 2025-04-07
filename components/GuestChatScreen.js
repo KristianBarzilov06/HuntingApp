@@ -92,14 +92,14 @@ const GuestChatScreen = ({ route, navigation }) => {
 
   // Функция за качване на медия (снимка или видео)
   const uploadMedia = async (fromGallery) => {
-    const permissionResult = fromGallery 
+    const permissionResult = fromGallery
       ? await ImagePicker.requestMediaLibraryPermissionsAsync()
       : await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
       Alert.alert('Нужно е разрешение', 'Моля, дайте разрешение за достъп.');
       return;
     }
-    const pickerResult = fromGallery 
+    const pickerResult = fromGallery
       ? await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, allowsEditing: true, quality: 0.7 })
       : await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.7, mediaTypes: ImagePicker.MediaTypeOptions.All });
     if (!pickerResult.canceled) {
@@ -226,7 +226,7 @@ const GuestChatScreen = ({ route, navigation }) => {
               if (userSnap.exists()) {
                 const userData = userSnap.data();
                 let updatedRoles = [...userData.roles];
-                let isGuestInGroup = updatedRoles.includes(`guest{${groupName}}`);
+                const isGuestInGroup = updatedRoles.includes(`guest{${groupName}}`);
                 if (isGuestInGroup) {
                   updatedRoles = updatedRoles.filter(role => role !== `guest{${groupName}}`);
                 } else {
@@ -234,6 +234,18 @@ const GuestChatScreen = ({ route, navigation }) => {
                   updatedRoles.push("hunter");
                 }
                 const updatedGroups = userData.groups ? userData.groups.filter(g => g !== groupId) : [];
+
+                // Ако потребителят е гост, изпращаме системно съобщение в guest_chat_messages
+                if (isGuestInGroup) {
+                  const leaveMessageData = {
+                    text: `${userData.firstName || 'Потребител'} ${userData.lastName || ''} напусна групата`,
+                    timestamp: new Date(),
+                    userId,
+                    systemMessage: true,
+                  };
+                  await addDoc(collection(firestore, 'groups', groupId, 'guest_chat_messages'), leaveMessageData);
+                }
+
                 await updateDoc(userRef, {
                   roles: updatedRoles,
                   groups: updatedGroups,
@@ -243,7 +255,7 @@ const GuestChatScreen = ({ route, navigation }) => {
                 navigation.replace('Main', { refresh: true });
               }
             } catch (error) {
-              console.error("Грешка при напускане на групата:", error);
+              console.error("GuestChatScreen.leaveGroup: Грешка при напускане на групата:", error);
               Alert.alert("Грешка", "Неуспешно напускане на групата.");
             }
           },
@@ -251,6 +263,8 @@ const GuestChatScreen = ({ route, navigation }) => {
       ]
     );
   };
+
+
 
   // Функция за копиране на текст
   const handleCopy = async (text) => {
@@ -333,9 +347,19 @@ const GuestChatScreen = ({ route, navigation }) => {
   };
 
   const renderMessage = ({ item }) => {
+
+    if (item.systemMessage) {
+      return (
+        <View style={styles.systemMessageContainer}>
+          <Text style={styles.systemMessageText}>{item.text}</Text>
+        </View>
+      );
+    }
+
     const isMyMessage = item.userId === userId;
     const profilePicture = profilePictures[item.userId];
-  
+
+
     return (
       <View style={[styles.messageContainer, isMyMessage ? styles.myMessageContainer : styles.otherMessageContainer]}>
         {!isMyMessage && (
@@ -372,7 +396,7 @@ const GuestChatScreen = ({ route, navigation }) => {
       </View>
     );
   };
-  
+
 
   return (
     <View style={styles.container}>

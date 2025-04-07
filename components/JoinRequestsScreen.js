@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  TouchableOpacity, 
-  Alert, 
-  ActivityIndicator, 
-  Modal, 
-  Image 
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Modal,
+  Image
 } from 'react-native';
-import { collection, getDocs, getFirestore, getDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, getFirestore, getDoc, doc, updateDoc, setDoc, addDoc } from 'firebase/firestore';
 import { app } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
@@ -21,7 +21,7 @@ const JoinRequestsScreen = ({ navigation, route }) => {
 
   const [joinRequests, setJoinRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Състояния за модала
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -57,10 +57,10 @@ const JoinRequestsScreen = ({ navigation, route }) => {
         setLoading(false);
       }
     };
-  
+
     fetchJoinRequests();
   }, [firestore, groupId]);
-  
+
 
   // Отваряне на модала за конкретна заявка
   const openRequestModal = async (request) => {
@@ -79,7 +79,7 @@ const JoinRequestsScreen = ({ navigation, route }) => {
     }
     setModalVisible(true);
   };
-  
+
 
   const closeModal = () => {
     setModalVisible(false);
@@ -100,7 +100,7 @@ const JoinRequestsScreen = ({ navigation, route }) => {
       const userData = userSnap.data();
       let updatedRoles = userData.roles || [];
       let updatedGroups = userData.groups || [];
-
+  
       if (applicationType === 'member') {
         if (!updatedRoles.includes("hunter")) {
           updatedRoles.push("hunter");
@@ -138,13 +138,22 @@ const JoinRequestsScreen = ({ navigation, route }) => {
           roles: [guestRole],
         }, { merge: true });
       }
-
+  
+      const joinText = `Току-що се присъедини ${userData.firstName} ${userData.lastName}`;
+      const targetCollection = request.applicationType === 'guest' ? 'guest_chat_messages' : 'messages';
+      await addDoc(collection(firestore, 'groups', groupId, targetCollection), {
+        text: joinText,
+        timestamp: new Date(),
+        userId: userId,
+        systemMessage: true,
+      });
+  
       const joinRequestRef = doc(firestore, 'groups', groupId, 'joinRequests', request.id);
       await updateDoc(joinRequestRef, {
         status: 'accepted',
         processedAt: new Date()
       });
-
+  
       setJoinRequests(prev => prev.filter(r => r.id !== request.id));
       Alert.alert("Успех", "Заявката е приета.");
       closeModal();
@@ -153,7 +162,7 @@ const JoinRequestsScreen = ({ navigation, route }) => {
       Alert.alert("Грешка", "Неуспешно приемане на заявката.");
     }
   };
-
+  
   // Функция за отхвърляне на заявка
   const rejectJoinRequest = async (request) => {
     try {
@@ -223,71 +232,71 @@ const JoinRequestsScreen = ({ navigation, route }) => {
         />
       )}
 
-        <Modal
+      <Modal
         visible={modalVisible}
         transparent={true}
         animationType="slide"
         onRequestClose={closeModal}
-        >
+      >
         <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
+          <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-                {selectedRequest?.applicationType === 'member'
+              {selectedRequest?.applicationType === 'member'
                 ? 'Заявка за членство'
                 : 'Заявка за гостуване'}
             </Text>
             {selectedUserData ? (
-                <View style={styles.userInfo}>
+              <View style={styles.userInfo}>
                 <View style={styles.userHeader}>
-                    {selectedUserData.profilePicture ? (
+                  {selectedUserData.profilePicture ? (
                     <Image source={{ uri: selectedUserData.profilePicture }} style={styles.profilePicture} />
-                    ) : (
+                  ) : (
                     <Ionicons name="person-circle-outline" size={40} color="#2A3B1F" />
-                    )}
-                    <Text style={styles.userText}>
+                  )}
+                  <Text style={styles.userText}>
                     {selectedUserData.firstName} {selectedUserData.lastName}
-                    </Text>
+                  </Text>
                 </View>
                 <View style={styles.modalFieldContainer}>
-                    <Text style={styles.modalFieldText}>Email: {selectedUserData.email}</Text>
+                  <Text style={styles.modalFieldText}>Email: {selectedUserData.email}</Text>
                 </View>
-                </View>
+              </View>
             ) : (
-                <Text style={styles.userText}>Няма допълнителни данни</Text>
+              <Text style={styles.userText}>Няма допълнителни данни</Text>
             )}
             {selectedRequest?.applicationType === 'member' && (
-                <>
+              <>
                 {selectedRequest.phone && (
-                    <View style={styles.modalFieldContainer}>
+                  <View style={styles.modalFieldContainer}>
                     <Text style={styles.modalFieldText}>Телефон: {selectedRequest.phone}</Text>
-                    </View>
+                  </View>
                 )}
                 {selectedRequest.motivation && (
-                    <View style={styles.modalFieldContainer}>
+                  <View style={styles.modalFieldContainer}>
                     <Text style={styles.modalFieldText}>Мотивация: {selectedRequest.motivation}</Text>
-                    </View>
+                  </View>
                 )}
-                </>
+              </>
             )}
             {selectedRequest?.applicationType === 'guest' && selectedRequest.reason && (
-                <View style={styles.modalFieldContainer}>
+              <View style={styles.modalFieldContainer}>
                 <Text style={styles.modalFieldText}>Причина: {selectedRequest.reason}</Text>
-                </View>
+              </View>
             )}
             <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.modalButton, { backgroundColor: 'green' }]} onPress={() => acceptJoinRequest(selectedRequest)}>
+              <TouchableOpacity style={[styles.modalButton, { backgroundColor: 'green' }]} onPress={() => acceptJoinRequest(selectedRequest)}>
                 <Text style={styles.modalButtonText}>Приеми</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalButton, { backgroundColor: 'red' }]} onPress={() => rejectJoinRequest(selectedRequest)}>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, { backgroundColor: 'red' }]} onPress={() => rejectJoinRequest(selectedRequest)}>
                 <Text style={styles.modalButtonText}>Откажи</Text>
-                </TouchableOpacity>
+              </TouchableOpacity>
             </View>
             <TouchableOpacity onPress={closeModal} style={styles.modalClose}>
-                <Text style={styles.modalCloseText}>Затвори</Text>
+              <Text style={styles.modalCloseText}>Затвори</Text>
             </TouchableOpacity>
-            </View>
+          </View>
         </View>
-        </Modal>
+      </Modal>
     </View>
   );
 };

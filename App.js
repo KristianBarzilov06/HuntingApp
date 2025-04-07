@@ -14,6 +14,7 @@ import NotificationsScreen from './components/NotificationsScreen';
 import GroupOverview from './components/GroupOverview';
 import JoinRequestsScreen from './components/JoinRequestsScreen';
 import Marketplace from './components/Marketplace';
+import MarketplaceChatScreenWrapper from './components/MarketplaceChatScreenWrapper';
 
 const Stack = createNativeStackNavigator();
 
@@ -39,9 +40,10 @@ const App = () => {
         <Stack.Screen name="AdminPanel" component={AdminPanel} options={{ headerShown: false }} />
         <Stack.Screen name="EventsScreen" component={EventsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="GroupOverview" component={GroupOverview} options={{ headerShown: false }}/>
-        <Stack.Screen name="JoinRequestsScreen" component={JoinRequestsScreen} options={{ headerShown: false }}/>
-        <Stack.Screen name="Marketplace" component={Marketplace} options={{ headerShown: false }}/>
+        <Stack.Screen name="GroupOverview" component={GroupOverview} options={{ headerShown: false }} />
+        <Stack.Screen name="JoinRequestsScreen" component={JoinRequestsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Marketplace" component={Marketplace} options={{ headerShown: false }} />
+        <Stack.Screen name="MarketplaceChatScreenWrapper" component={MarketplaceChatScreenWrapper} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -8,9 +8,10 @@ import {
     ScrollView,
     Image,
     Modal,
-    Platform,
     KeyboardAvoidingView,
-    ActivityIndicator
+    ActivityIndicator,
+    Platform,
+    RefreshControl
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
@@ -18,8 +19,25 @@ import PropTypes from 'prop-types';
 import styles from '../src/styles/MarketplaceStyles';
 import { getAuth } from 'firebase/auth';
 import { firestore } from '../firebaseConfig';
-import { doc, getDoc, collection, addDoc, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, getDocs, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+
+// Функция за извличане на разговорите от Firestore
+const fetchConversations = async (userId) => {
+    try {
+        const convosRef = collection(firestore, 'marketplaceConversations');
+        const q = query(convosRef, where('participants', 'array-contains', userId));
+        const querySnapshot = await getDocs(q);
+        const convos = [];
+        querySnapshot.forEach((docSnap) => {
+            convos.push({ ...docSnap.data(), id: docSnap.id });
+        });
+        return convos;
+    } catch (error) {
+        console.error('Error fetching conversations:', error);
+        return [];
+    }
+};
 
 const Marketplace = ({ navigation }) => {
     const [category, setCategory] = useState('dogs');
@@ -27,75 +45,29 @@ const Marketplace = ({ navigation }) => {
     const [weapons, setWeapons] = useState([]);
     const [selectedItem, setSelectedItem] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
-
-    // Поле за цена (string, по-късно ще го конвертираме в handleSubmit)
-    const [priceInput, setPriceInput] = useState('');
-
-    // Поле за качена снимка на артикула
-    const [uploadedImage, setUploadedImage] = useState(null);
-
-    // Управление на модала
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [fullScreenVisible, setFullScreenVisible] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
-
-    // Поле за заглавието на обявата
     const [adTitle, setAdTitle] = useState('');
-
-    // Полета за име на артикула и описание
     const [articleName, setArticleName] = useState('');
     const [description, setDescription] = useState('');
-
-    // Тук пазим обявите, извлечени от базата
     const [ads, setAds] = useState([]);
-
-    // Сортиране
     const [sortMenuVisible, setSortMenuVisible] = useState(false);
     const [sortMode, setSortMode] = useState({ method: 'date', order: 'asc' });
-
-    // Данни за текущия потребител
     const [userData, setUserData] = useState({});
     const auth = getAuth();
     const userId = auth.currentUser.uid;
-
     const [isEditing, setIsEditing] = useState(false);
-    const [editingAd, setEditingAd] = useState(null); // Тук пазим цялата обява, която редактираме
+    const [editingAd, setEditingAd] = useState(null);
+    const [priceInput, setPriceInput] = useState('');
+    const [uploadedImage, setUploadedImage] = useState(null);
+    // State за списък с разговори
+    const [chatListVisible, setChatListVisible] = useState(false);
+    const [conversations, setConversations] = useState([]);
+    // State за pull-to-refresh
+    const [refreshing, setRefreshing] = useState(false);
 
-    useEffect(() => {
-        const fetchUserData = async () => {
-            try {
-                const userRef = doc(firestore, 'users', userId);
-                const userSnap = await getDoc(userRef);
-                if (userSnap.exists()) {
-                    const data = userSnap.data();
-
-                    // Ако userData.groups е масив с ID-та на групи, вземаме първата група:
-                    let groupName = '';
-                    if (Array.isArray(data.groups) && data.groups.length > 0) {
-                        const groupId = data.groups[0];
-                        // Прочитаме документа за групата
-                        const groupRef = doc(firestore, 'groups', groupId);
-                        const groupSnap = await getDoc(groupRef);
-                        if (groupSnap.exists()) {
-                            const groupData = groupSnap.data();
-                            // groupData.name примерно е "ЛРД-Дюлево"
-                            groupName = groupData.name || '';
-                        }
-                    }
-
-                    // Добавяме си groupName като поле в userData, за да го ползваме лесно нататък
-                    data.groupName = groupName;
-
-                    // Сетваме останалите данни
-                    setDogs(data.dogs || []);
-                    setWeapons(data.equipment || []);
-                    setUserData(data);
-                }
-            } catch (error) {
-                console.error('Error fetching user data:', error);
-            }
-        };
-        fetchUserData();
-    }, [userId]);
-
+    // Зареждане на обявите
     const fetchAds = async () => {
         try {
             const querySnapshot = await getDocs(collection(firestore, 'marketplace'));
@@ -111,19 +83,67 @@ const Marketplace = ({ navigation }) => {
         }
     };
 
-    // Зареждаме обявите при първо стартиране
+    // Функция за pull-to-refresh – презарежда обявите
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchAds();
+        setRefreshing(false);
+    }, []);
+
     useEffect(() => {
         fetchAds();
     }, []);
 
-    // Ако изберем куче/оръжие от профила, попълваме articleName
+    // Зареждане на потребителските данни
+    useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                const userRef = doc(firestore, 'users', userId);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    const data = userSnap.data();
+                    let groupName = '';
+                    if (Array.isArray(data.groups) && data.groups.length > 0) {
+                        const groupId = data.groups[0];
+                        const groupRef = doc(firestore, 'groups', groupId);
+                        const groupSnap = await getDoc(groupRef);
+                        if (groupSnap.exists()) {
+                            const groupData = groupSnap.data();
+                            groupName = groupData.name || '';
+                        }
+                    }
+                    data.groupName = groupName;
+                    setDogs(data.dogs || []);
+                    setWeapons(data.equipment || []);
+                    setUserData(data);
+                }
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+            }
+        };
+        fetchUserData();
+    }, [userId]);
+
     useEffect(() => {
         if (selectedItem && (category === 'dogs' || category === 'weapons')) {
             setArticleName(selectedItem.dogName || selectedItem.name || '');
         }
     }, [selectedItem, category]);
 
-    // Качване на снимка
+    // Зареждане на разговорите от Firestore
+    useEffect(() => {
+        const loadConversations = async () => {
+            try {
+                const convos = await fetchConversations(userId);
+                setConversations(convos);
+            } catch (error) {
+                console.error('Error fetching conversations:', error);
+            }
+        };
+        loadConversations();
+    }, [userId]);
+
+    // Функция за качване на снимка
     const pickImage = async () => {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permissionResult.granted) {
@@ -140,17 +160,14 @@ const Marketplace = ({ navigation }) => {
         }
     };
 
-    // Конвертиране на цена (string) в стотинки
     const parsePriceInput = (input) => {
         const trimmed = input.trim();
         if (!trimmed) {
             return 0;
         }
-        // Ако има десетичен разделител, четем като левове.стотинки
         if (trimmed.includes('.') || trimmed.includes(',')) {
             return Math.round(parseFloat(trimmed.replace(',', '.')) * 100);
         } else {
-            // Иначе приемаме, че е цяло число (лева)
             const leva = parseInt(trimmed, 10);
             if (isNaN(leva)) {
                 return 0;
@@ -159,51 +176,29 @@ const Marketplace = ({ navigation }) => {
         }
     };
 
-    /* 
-     * Функция за "Редактирай обявата"
-     * - Попълваме state с данните на обявата
-     * - Отваряме модала с isEditing = true
-     */
     const handleEditAd = (ad) => {
-        // Запазваме цялата обява в state
         setEditingAd(ad);
         setIsEditing(true);
-
-        // Попълваме полетата
         setCategory(ad.category || 'dogs');
         setAdTitle(ad.adTitle || '');
         setDescription(ad.description || '');
         setArticleName(ad.articleName || '');
-        // Преобразуваме цената от стотинки към string
         const priceLeva = (ad.price || 0) / 100;
-        const priceStr = priceLeva.toString().replace('.', ','); // "12.5" -> "12,5"
+        const priceStr = priceLeva.toString().replace('.', ',');
         setPriceInput(priceStr);
-
         setUploadedImage(ad.uploadedImage || null);
-
-        // Ако има selectedItem, опитваме да го "селектираме"
         if (ad.selectedItem) {
             setSelectedItem(ad.selectedItem);
         } else {
             setSelectedItem(null);
         }
-
-        // Отваряме модала
         setModalVisible(true);
     };
 
-    /*
-     * Функция за "Запази промените" при редакция
-     */
     const handleSaveChanges = async () => {
         if (!editingAd) return;
-        // Взимаме референтния документ
         const docRef = doc(firestore, 'marketplace', editingAd.id);
-
-        // Конвертираме въведената цена в стотинки
         const priceInCents = parsePriceInput(priceInput);
-
-        // Подготвяме обновените данни
         const updatedAd = {
             ...editingAd,
             category,
@@ -214,30 +209,22 @@ const Marketplace = ({ navigation }) => {
             uploadedImage,
             selectedItem,
         };
-
         try {
             await updateDoc(docRef, updatedAd);
-            // Обновяваме локалния state
             const newAds = ads.map((item) =>
                 item.id === editingAd.id ? { ...updatedAd } : item
             );
             setAds(newAds);
-
             Alert.alert('Успешно', 'Обявата е обновена.');
         } catch (error) {
             Alert.alert('Грешка', 'Неуспешна редакция на обявата.');
             console.error('Error updating ad:', error);
         }
-
-        // Затваряме модала
         setModalVisible(false);
         setIsEditing(false);
         setEditingAd(null);
     };
 
-    /*
-     * Функция за изтриване на обява (бутона е в модала)
-     */
     const handleDeleteAd = async () => {
         if (!editingAd) return;
         Alert.alert(
@@ -254,11 +241,8 @@ const Marketplace = ({ navigation }) => {
                     onPress: async () => {
                         try {
                             await deleteDoc(doc(firestore, 'marketplace', editingAd.id));
-                            // Махаме я и от локалния state
                             setAds(ads.filter((item) => item.id !== editingAd.id));
-
                             Alert.alert('Успешно', 'Обявата е изтрита.');
-                            // Затваряме модала
                             setModalVisible(false);
                             setIsEditing(false);
                             setEditingAd(null);
@@ -272,9 +256,6 @@ const Marketplace = ({ navigation }) => {
         );
     };
 
-    /*
-     * Функция за създаване на НОВА обява
-     */
     const handleCreateAd = async () => {
         if (!adTitle.trim()) {
             Alert.alert('Грешка', 'Моля въведете заглавие на обявата.');
@@ -289,7 +270,6 @@ const Marketplace = ({ navigation }) => {
             return;
         }
         const priceInCents = parsePriceInput(priceInput);
-
         const newAd = {
             id: new Date().toISOString(),
             category,
@@ -308,24 +288,20 @@ const Marketplace = ({ navigation }) => {
             articleName,
             creationDate: new Date().toISOString(),
         };
-
         try {
             const docRef = await addDoc(collection(firestore, 'marketplace'), newAd);
             newAd.id = docRef.id;
             setAds([...ads, newAd]);
-
             Alert.alert('Успешно', 'Обявата е публикувана.');
         } catch (error) {
             Alert.alert('Грешка', 'Неуспешно публикуване на обявата.');
             console.error('Error publishing ad:', error);
         }
-
         setModalVisible(false);
     };
 
-
     const handleSubmit = async () => {
-        if (isSaving) return; // Предотвратява повторни кликове
+        if (isSaving) return;
         setIsSaving(true);
         try {
             if (isEditing) {
@@ -340,7 +316,6 @@ const Marketplace = ({ navigation }) => {
         }
     };
 
-    // Сортиране на обявите
     const sortedAds = [...ads].sort((a, b) => {
         if (sortMode.method === 'date') {
             return sortMode.order === 'asc'
@@ -365,124 +340,207 @@ const Marketplace = ({ navigation }) => {
     const isSelectedMethod = (method) => sortMode.method === method;
     const isSelectedOrder = (order) => sortMode.order === order;
 
-    // Форматиране на цената (стотинки -> "0,00 лв.")
     const formatPrice = (priceInCents) => {
         const num = priceInCents / 100;
         return num.toFixed(2).replace('.', ',') + ' лв.';
     };
 
-    // Примерна функция за „Изпращане на съобщение“ (не е задължителна)
-    const handleSendMessage = (adId) => {
-        Alert.alert('Съобщение', `Изпращане на съобщение до обява с ID: ${adId}`);
+    // Функция за отваряне на чат между потребителя и продавача
+    const openChatForAd = async (ad) => {
+        if (ad.userId !== userId) {
+            try {
+                const convosRef = collection(firestore, 'marketplaceConversations');
+                const q = query(convosRef, where('adId', '==', ad.id));
+                const querySnapshot = await getDocs(q);
+                let conversation = null;
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    if (data.participants && data.participants.includes(userId) && data.participants.includes(ad.userId)) {
+                        conversation = { id: docSnap.id, ...data };
+                    }
+                });
+                if (!conversation) {
+                    const newConversation = {
+                        adId: ad.id,
+                        adTitle: ad.adTitle,
+                        participants: [userId, ad.userId],
+                        sellerId: ad.userId,
+                        sellerFirstName: ad.sellerFirstName || (ad.userName ? ad.userName.split(' ')[0] : "Без"),
+                        sellerLastName: ad.sellerLastName || (ad.userName ? ad.userName.split(' ').slice(1).join(' ') : "име"),
+                        buyerId: userId,
+                        createdAt: new Date(),
+                        adImage: ad.uploadedImage 
+                    };
+                    const docRef = await addDoc(convosRef, newConversation);
+                    conversation = { id: docRef.id, ...newConversation };
+                }
+                navigation.navigate('MarketplaceChatScreenWrapper', {
+                    groupId: conversation.id,
+                    groupName: ad.adTitle,
+                    chatType: 'marketplace',
+                    adId: ad.id,
+                    sellerId: ad.userId,
+                    sellerFirstName: ad.sellerFirstName || (ad.userName ? ad.userName.split(' ')[0] : "Без"),
+                    sellerLastName: ad.sellerLastName || (ad.userName ? ad.userName.split(' ').slice(1).join(' ') : "име"),
+                    adImage: conversation.adImage || ad.uploadedImage,
+                    conversationId: conversation.id,
+                });
+            } catch (error) {
+                console.error("Error creating or retrieving conversation:", error);
+                Alert.alert("Грешка", "Неуспешно създаване на чат.");
+            }
+        } else {
+            navigation.navigate('EditAdScreen', { adId: ad.id });
+        }
     };
 
-    /*
-     * JSX
-     */
+    // Функция за отваряне на модал със списък от разговори
+    const openChatListModal = () => {
+        setChatListVisible(true);
+    };
+
+    const closeChatListModal = () => {
+        setChatListVisible(false);
+    };
+
+    const deleteConversation = async (conversationId) => {
+        try {
+            await deleteDoc(doc(firestore, 'marketplaceConversations', conversationId));
+            setConversations((prev) => prev.filter((conv) => conv.id !== conversationId));
+        } catch (error) {
+            console.error("Error deleting conversation:", error);
+            Alert.alert("Грешка", "Неуспешно изтриване на разговора.");
+        }
+    };
+
+    const openChatFromList = (conversation) => {
+        navigation.navigate('MarketplaceChatScreenWrapper', {
+            groupId: conversation.id,
+            groupName: conversation.adTitle,
+            chatType: 'marketplace',
+            conversationId: conversation.id,
+            sellerId: conversation.sellerId,
+            sellerName: conversation.sellerFirstName,
+        });
+        setChatListVisible(false);
+    };
+
+    // Функция за отваряне на модал за цял екран със снимката
+    const openFullScreen = (uri) => {
+        setSelectedImage(uri);
+        setFullScreenVisible(true);
+    };
+
+    const closeFullScreen = () => {
+        setFullScreenVisible(false);
+        setSelectedImage(null);
+    };
+
     return (
         <View style={{ flex: 1 }}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 10 }}>
                     <Ionicons name="arrow-back" size={24} color="white" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Покупко-продажба</Text>
-                <TouchableOpacity
-                    onPress={() => {
-                        // ВАЖНО: при натискане на "добавяне" -> да е нова обява
-                        setIsEditing(false);
-                        setEditingAd(null);
-                        // Изчистваме полетата
-                        setCategory('dogs');
-                        setAdTitle('');
-                        setDescription('');
-                        setArticleName('');
-                        setPriceInput('');
-                        setUploadedImage(null);
-                        setSelectedItem(null);
-                        // Показваме модала
-                        setModalVisible(true);
-                    }}
-                    style={styles.addButton}
-                >
-                    <Ionicons name="add" size={24} color="white" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row' }}>
+                    <TouchableOpacity onPress={openChatListModal} style={{ marginRight: 10 }}>
+                        <Ionicons name="paper-plane" size={24} color="white" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setSortMenuVisible(!sortMenuVisible)} style={{ marginRight: 10 }}>
+                        <Ionicons name="options" size={24} color="white" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
-            {/* Сортиране */}
-            <View style={styles.sortContainer}>
-                <TouchableOpacity
-                    onPress={() => setSortMenuVisible(!sortMenuVisible)}
-                    style={styles.sortButton}
-                >
-                    <Ionicons name="options" size={24} color="#fff" />
-                    <Text style={styles.sortButtonText}>Сортирай</Text>
-                </TouchableOpacity>
-            </View>
+            {/* Модал със списък от разговори */}
+            <Modal
+                visible={chatListVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={closeChatListModal}
+            >
+                <View style={styles.chatListModalContainer}>
+                    <Text style={styles.chatListModalTitle}>Вашите разговори</Text>
+                    <ScrollView>
+                        {conversations.map((conv) => (
+                            <View key={conv.id} style={styles.chatListItem}>
+                                <View style={styles.chatListItemInfo}>
+                                    {conv.sellerProfilePhoto ? (
+                                        <Image source={{ uri: conv.sellerProfilePhoto }} style={styles.chatListProfilePhoto} />
+                                    ) : (
+                                        <Ionicons name="person-circle-outline" size={40} color="#999" />
+                                    )}
+                                    <View style={styles.chatListTextContainer}>
+                                        <Text style={styles.chatListAdTitle} numberOfLines={1}>
+                                            {conv.adTitle}
+                                        </Text>
+                                        <Text style={styles.chatListSellerName}>
+                                            {conv.sellerFirstName} {conv.sellerLastName}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <View style={{ flexDirection: 'row' }}>
+                                    <TouchableOpacity onPress={() => openChatFromList(conv)} style={styles.chatListOpenButton}>
+                                        <Ionicons name="chatbubbles" size={24} color="white" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => deleteConversation(conv.id)} style={styles.chatListDeleteButton}>
+                                        <Ionicons name="trash" size={24} color="white" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ))}
+                    </ScrollView>
+                    <TouchableOpacity onPress={closeChatListModal} style={styles.chatListCloseButton}>
+                        <Text style={styles.chatListCloseButtonText}>Затвори</Text>
+                    </TouchableOpacity>
+                </View>
+            </Modal>
+
+            {/* Модал за сортиране */}
             {sortMenuVisible && (
                 <View style={styles.sortMenuContainer}>
                     <Text style={styles.sortMenuTitle}>Метод:</Text>
                     <TouchableOpacity
                         onPress={() => handleSortMethod('date')}
-                        style={[
-                            styles.sortMenuItem,
-                            isSelectedMethod('date') && styles.sortMenuItemSelected,
-                        ]}
+                        style={[styles.sortMenuItem, isSelectedMethod('date') && styles.sortMenuItemSelected]}
                     >
                         <Text style={styles.sortMenuItemText}>По дата</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         onPress={() => handleSortMethod('price')}
-                        style={[
-                            styles.sortMenuItem,
-                            isSelectedMethod('price') && styles.sortMenuItemSelected,
-                        ]}
+                        style={[styles.sortMenuItem, isSelectedMethod('price') && styles.sortMenuItemSelected]}
                     >
                         <Text style={styles.sortMenuItemText}>По цена</Text>
                     </TouchableOpacity>
-
                     <Text style={styles.sortMenuTitle}>Ред:</Text>
                     <TouchableOpacity
                         onPress={() => handleSortOrder('asc')}
-                        style={[
-                            styles.sortMenuItem,
-                            isSelectedOrder('asc') && styles.sortMenuItemSelected,
-                        ]}
+                        style={[styles.sortMenuItem, isSelectedOrder('asc') && styles.sortMenuItemSelected]}
                     >
                         <Text style={styles.sortMenuItemText}>Възходящо</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         onPress={() => handleSortOrder('desc')}
-                        style={[
-                            styles.sortMenuItem,
-                            isSelectedOrder('desc') && styles.sortMenuItemSelected,
-                        ]}
+                        style={[styles.sortMenuItem, isSelectedOrder('desc') && styles.sortMenuItemSelected]}
                     >
                         <Text style={styles.sortMenuItemText}>Низходящо</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
-            {/* Списък с обяви */}
-            <ScrollView contentContainerStyle={styles.container}>
+            {/* Списък с обяви с pull-to-refresh */}
+            <ScrollView
+                contentContainerStyle={styles.container}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+            >
                 {sortedAds.length > 0 ? (
                     sortedAds.map((ad) => {
                         const formattedDate = new Date(ad.creationDate).toLocaleDateString('bg-BG');
-                        const imageUri =
-                            ad.uploadedImage ||
-                            ad.selectedItem?.dogPicture ||
-                            ad.selectedItem?.image;
-
-                        const dogName = ad.selectedItem?.dogName || '';
-                        const dogBreed = ad.selectedItem?.dogBreed || '';
-                        const dogAge = ad.selectedItem?.dogAge || '';
-
-                        const weaponName = ad.selectedItem?.name || '';
-                        const weaponModel = ad.selectedItem?.model || '';
-
-                        const userPhoto = ad.userProfilePhoto;
-                        const userOrg = ad.userOrganization;
-
+                        const imageUri = ad.uploadedImage || ad.selectedItem?.dogPicture || ad.selectedItem?.image;
                         return (
                             <View key={ad.id} style={styles.adCard}>
                                 {/* Горна лента */}
@@ -491,16 +549,35 @@ const Marketplace = ({ navigation }) => {
                                     <Text style={styles.adHeaderDate}>{formattedDate}</Text>
                                 </View>
 
-                                {/* Снимка */}
-                                <View style={styles.adImageContainer}>
-                                    {imageUri ? (
-                                        <Image source={{ uri: imageUri }} style={styles.adImage} />
-                                    ) : (
-                                        <Text style={{ color: '#555' }}>Без снимка</Text>
-                                    )}
-                                </View>
+                                {/* Снимка – натиснете за отваряне в модал за цял екран */}
+                                <TouchableOpacity onPress={() => openFullScreen(imageUri)}>
+                                    <View style={styles.adImageContainer}>
+                                        {imageUri ? (
+                                            <Image source={{ uri: imageUri }} style={styles.adImage} />
+                                        ) : (
+                                            <Text style={{ color: '#555' }}>Без снимка</Text>
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
 
-                                {/* Описание + Детайли */}
+                                {/* Модал за показване на снимката на цял екран */}
+                                <Modal
+                                    visible={fullScreenVisible}
+                                    transparent
+                                    animationType="fade"
+                                    onRequestClose={closeFullScreen}
+                                >
+                                    <View style={styles.fullScreenContainer}>
+                                        {selectedImage && (
+                                            <Image source={{ uri: selectedImage }} style={styles.fullScreenImage} resizeMode="contain" />
+                                        )}
+                                        <TouchableOpacity onPress={closeFullScreen} style={styles.closeButton}>
+                                            <Ionicons name="close" size={36} color="#fff" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </Modal>
+
+                                {/* Детайли за обявата */}
                                 <View style={styles.adDetailsRow}>
                                     <View style={styles.adDescriptionBox}>
                                         <Text style={styles.adDescriptionTitle}>Описание:</Text>
@@ -509,89 +586,58 @@ const Marketplace = ({ navigation }) => {
                                     <View style={styles.adInfoBox}>
                                         {ad.category === 'dogs' && (
                                             <>
-                                                {dogName ? <Text style={styles.adInfoLine}>Име: {dogName}</Text> : null}
-                                                {dogAge ? <Text style={styles.adInfoLine}>Години: {dogAge}</Text> : null}
-                                                {dogBreed ? <Text style={styles.adInfoLine}>Порода: {dogBreed}</Text> : null}
+                                                {ad.selectedItem?.dogName ? <Text style={styles.adInfoLine}>Име: {ad.selectedItem.dogName}</Text> : null}
+                                                {ad.selectedItem?.dogAge ? <Text style={styles.adInfoLine}>Години: {ad.selectedItem.dogAge}</Text> : null}
+                                                {ad.selectedItem?.dogBreed ? <Text style={styles.adInfoLine}>Порода: {ad.selectedItem.dogBreed}</Text> : null}
                                             </>
                                         )}
                                         {ad.category === 'weapons' && (
                                             <>
-                                                {weaponName ? (
-                                                    <Text style={styles.adInfoLine}>Име: {weaponName}</Text>
-                                                ) : null}
-                                                {weaponModel ? (
-                                                    <Text style={styles.adInfoLine}>Модел: {weaponModel}</Text>
-                                                ) : null}
+                                                {ad.selectedItem?.name ? <Text style={styles.adInfoLine}>Име: {ad.selectedItem.name}</Text> : null}
+                                                {ad.selectedItem?.model ? <Text style={styles.adInfoLine}>Модел: {ad.selectedItem.model}</Text> : null}
                                             </>
                                         )}
                                         {ad.category === 'equipment' && ad.articleName && (
                                             <Text style={styles.adInfoLine}>Артикул: {ad.articleName}</Text>
                                         )}
-
                                         <Text style={styles.adPrice}>{formatPrice(ad.price)}</Text>
                                     </View>
                                 </View>
 
-                                {/* Footer */}
+                                {/* Footer с данни за потребителя и бутон за чат или редакция */}
                                 <View style={styles.adFooter}>
                                     <View style={styles.adUserInfo}>
-                                        {userPhoto ? (
-                                            <Image source={{ uri: userPhoto }} style={styles.adUserProfilePic} />
+                                        {ad.userProfilePhoto ? (
+                                            <Image source={{ uri: ad.userProfilePhoto }} style={styles.adUserProfilePic} />
                                         ) : (
-                                            <Ionicons
-                                                name="person-circle-outline"
-                                                size={40}
-                                                color="#999"
-                                                style={{ marginRight: 8 }}
-                                            />
+                                            <Ionicons name="person-circle-outline" size={40} color="#999" style={{ marginRight: 8 }} />
                                         )}
-                                        {/* Обвиваме името в контейнер, който може да заеме няколко реда */}
                                         <View style={styles.userNameContainer}>
-                                            <Text style={styles.adUserName}>
-                                                {ad.userName}
-                                            </Text>
-                                            {userOrg ? (
-                                                <Text style={styles.adUserGroup}>
-                                                    {userOrg}
-                                                </Text>
+                                            <Text style={styles.adUserName} numberOfLines={1}>{ad.userName}</Text>
+                                            {ad.userOrganization ? (
+                                                <Text style={styles.adUserGroup} numberOfLines={1}>{ad.userOrganization}</Text>
                                             ) : null}
                                         </View>
                                     </View>
-
                                     <View style={styles.adFooterRight}>
                                         {ad.userPhone ? (
                                             <Text style={styles.adUserPhone}>Тел.номер: {ad.userPhone}</Text>
                                         ) : null}
                                         {ad.userId === userId ? (
-                                            <TouchableOpacity
-                                                style={styles.adEditButton}
-                                                onPress={() => handleEditAd(ad)}
-                                            >
-                                                <Text
-                                                    style={styles.adEditButtonText}
-                                                    numberOfLines={1}
-                                                    ellipsizeMode="tail"
-                                                >
+                                            <TouchableOpacity style={styles.adEditButton} onPress={() => handleEditAd(ad)}>
+                                                <Text style={styles.adEditButtonText} numberOfLines={1} ellipsizeMode="tail">
                                                     Редактирай обявата
                                                 </Text>
                                             </TouchableOpacity>
                                         ) : (
-                                            <TouchableOpacity
-                                                style={styles.adMessageButton}
-                                                onPress={() => handleSendMessage(ad.id)}
-                                            >
-                                                <Text
-                                                    style={styles.adMessageButtonText}
-                                                    numberOfLines={1}
-                                                    ellipsizeMode="tail"
-                                                >
-                                                    Изпрати съобщение
+                                            <TouchableOpacity style={styles.adMessageButton} onPress={() => openChatForAd(ad)}>
+                                                <Text style={styles.adMessageButtonText} numberOfLines={1} ellipsizeMode="tail">
+                                                    Изпращане на съобщение
                                                 </Text>
                                             </TouchableOpacity>
                                         )}
                                     </View>
                                 </View>
-
                             </View>
                         );
                     })
@@ -602,23 +648,16 @@ const Marketplace = ({ navigation }) => {
 
             {/* Modal за Създаване/Редакция на обява */}
             <Modal visible={modalVisible} animationType="slide" transparent>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.modalCenteredView}
-                >
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalCenteredView}>
                     <View style={styles.modalContainer}>
-                        <ScrollView
-                            contentContainerStyle={{ paddingBottom: 20 }}
-                            keyboardShouldPersistTaps="handled"
-                        >
-                            {/* Заглавие на модала */}
+                        <ScrollView contentContainerStyle={{ paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
                             {isEditing ? (
                                 <Text style={styles.modalTitle}>Редакция на обява</Text>
                             ) : (
                                 <Text style={styles.modalTitle}>Нова обява</Text>
                             )}
 
-                            {/* Избор на категория */}
+                            {/* Полета за попълване */}
                             <View style={styles.categoryContainer}>
                                 <TouchableOpacity
                                     onPress={() => setCategory('dogs')}
@@ -628,25 +667,18 @@ const Marketplace = ({ navigation }) => {
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => setCategory('weapons')}
-                                    style={[
-                                        styles.categoryButton,
-                                        category === 'weapons' && styles.categoryButtonActive,
-                                    ]}
+                                    style={[styles.categoryButton, category === 'weapons' && styles.categoryButtonActive]}
                                 >
                                     <Text style={styles.categoryText}>Оръжия</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => setCategory('equipment')}
-                                    style={[
-                                        styles.categoryButton,
-                                        category === 'equipment' && styles.categoryButtonActive,
-                                    ]}
+                                    style={[styles.categoryButton, category === 'equipment' && styles.categoryButtonActive]}
                                 >
                                     <Text style={styles.categoryText}>Екипировка</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Заглавие на обявата */}
                             <Text style={styles.label}>Заглавие на обявата:</Text>
                             <TextInput
                                 style={styles.input}
@@ -656,7 +688,6 @@ const Marketplace = ({ navigation }) => {
                                 onChangeText={setAdTitle}
                             />
 
-                            {/* Ако е категория "Кучета" */}
                             {category === 'dogs' && (
                                 <>
                                     <Text style={styles.label}>Избери куче от профила си:</Text>
@@ -693,7 +724,6 @@ const Marketplace = ({ navigation }) => {
                                 </>
                             )}
 
-                            {/* Ако е категория "Оръжия" */}
                             {category === 'weapons' && (
                                 <>
                                     <Text style={styles.label}>Избери оръжие от профила си:</Text>
@@ -730,14 +760,12 @@ const Marketplace = ({ navigation }) => {
                                 </>
                             )}
 
-                            {/* Ако е "Екипировка" */}
                             {category === 'equipment' && (
                                 <Text style={styles.label}>
                                     Въведете данни за екипировка/облекло (име, описание, цена и снимка).
                                 </Text>
                             )}
 
-                            {/* Име на артикула */}
                             <Text style={styles.label}>Име на артикула:</Text>
                             <TextInput
                                 style={styles.input}
@@ -747,7 +775,6 @@ const Marketplace = ({ navigation }) => {
                                 onChangeText={setArticleName}
                             />
 
-                            {/* Описание */}
                             <Text style={styles.label}>Описание:</Text>
                             <TextInput
                                 style={styles.input}
@@ -758,7 +785,6 @@ const Marketplace = ({ navigation }) => {
                                 multiline
                             />
 
-                            {/* Цена */}
                             <Text style={styles.label}>Цена:</Text>
                             <TextInput
                                 style={styles.input}
@@ -769,18 +795,12 @@ const Marketplace = ({ navigation }) => {
                                 keyboardType="numeric"
                             />
 
-                            {/* Бутон за качване на снимка */}
                             <Text style={styles.label}>Качете снимка:</Text>
                             <TouchableOpacity onPress={pickImage} style={styles.imagePickerButton}>
-                                <Text style={styles.imagePickerText}>
-                                    {uploadedImage ? 'Промени снимка' : 'Избери снимка'}
-                                </Text>
+                                <Text style={styles.imagePickerText}>{uploadedImage ? 'Промени снимка' : 'Избери снимка'}</Text>
                             </TouchableOpacity>
-                            {uploadedImage && (
-                                <Image source={{ uri: uploadedImage }} style={styles.uploadedImage} />
-                            )}
+                            {uploadedImage && <Image source={{ uri: uploadedImage }} style={styles.uploadedImage} />}
 
-                            {/* Основен бутон: ако еEditing -> "Запази промените", иначе "Публикувай обявата" */}
                             <TouchableOpacity
                                 onPress={handleSubmit}
                                 style={[styles.submitButton, isSaving && { opacity: 0.6 }]}
@@ -795,7 +815,6 @@ const Marketplace = ({ navigation }) => {
                                 )}
                             </TouchableOpacity>
 
-                            {/* Малък бутон за изтриване, ако сме в режим редакция */}
                             {isEditing && (
                                 <TouchableOpacity
                                     style={[styles.cancelButton, { backgroundColor: '#B22222' }]}
@@ -805,7 +824,6 @@ const Marketplace = ({ navigation }) => {
                                 </TouchableOpacity>
                             )}
 
-                            {/* Бутон за отказ (затваряне на модала) */}
                             <TouchableOpacity
                                 onPress={() => {
                                     setModalVisible(false);
@@ -825,7 +843,7 @@ const Marketplace = ({ navigation }) => {
 };
 
 Marketplace.propTypes = {
-    navigation: PropTypes.object,
+    navigation: PropTypes.object.isRequired,
 };
 
 export default Marketplace;

@@ -42,6 +42,31 @@ const ChatScreen = ({ route, navigation }) => {
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
   useEffect(() => {
+    if (route.params?.joined) {
+      const sendJoinMessage = async () => {
+        const displayName = getAuth().currentUser.displayName || "Потребител";
+        const joinText = `${displayName} се присъедини в групата`;
+        const messageData = {
+          text: joinText,
+          timestamp: new Date(),
+          userId,
+          systemMessage: true,
+        };
+
+        // Ако потребителят е гост – използваме колекцията guest_chat_messages, иначе messages
+        const targetCollection = userRoles.includes(`guest{${groupName}}`)
+          ? 'guest_chat_messages'
+          : 'messages';
+
+        await addDoc(collection(firestore, 'groups', stringGroupId, targetCollection), messageData);
+      };
+
+      sendJoinMessage();
+    }
+  }, [route.params?.joined, groupName, userRoles]);
+
+
+  useEffect(() => {
     const fetchUserRoles = async () => {
       if (!userId) return;
       const userRef = doc(firestore, `users/${userId}`);
@@ -271,20 +296,20 @@ const ChatScreen = ({ route, navigation }) => {
       const filePart = decodedUrl.split('/').pop().split('?')[0];
       const dir = FileSystem.documentDirectory + 'images';
       const fileUri = `${dir}/${filePart}`;
-  
+
       const dirInfo = await FileSystem.getInfoAsync(dir);
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
       }
-  
+
       const { uri } = await FileSystem.downloadAsync(url, fileUri);
-  
+
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Разрешение необходимо', 'Приложението се нуждае от достъп до галерията.');
         return;
       }
-  
+
       const asset = await MediaLibrary.createAssetAsync(uri);
       await MediaLibrary.createAlbumAsync("Дружинар", asset, false);
       Alert.alert("Изтегляне успешно", "Медията е запазена във вашата галерия.");
@@ -304,7 +329,7 @@ const ChatScreen = ({ route, navigation }) => {
     if (!message) return null;
     const messageType = message.mediaType ? message.mediaType : 'text';
     const isOwn = message.userId === userId;
-  
+
     return (
       <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
         <TouchableOpacity style={styles.modalOverlay} onPress={onClose}>
@@ -353,7 +378,7 @@ const ChatScreen = ({ route, navigation }) => {
       </Modal>
     );
   };
-  
+
   OptionsModal.propTypes = {
     visible: PropTypes.bool.isRequired,
     message: PropTypes.oneOfType([
@@ -385,6 +410,13 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const renderMessage = ({ item, index }) => {
+    if (item.systemMessage) {
+      return (
+        <View style={styles.systemMessageContainer}>
+          <Text style={styles.systemMessageText}>{item.text}</Text>
+        </View>
+      );
+    }
     const isMyMessage = item.userId === userId;
     const profilePicture = profilePictures[item.userId];
     const isLastMessageOfBlock =
@@ -525,88 +557,87 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const leaveGroup = async () => {
-    Alert.alert(
-      "Напускане на групата",
-      "Сигурни ли сте, че искате да напуснете тази група?",
-      [
-        {
-          text: "Отказ",
-          style: "cancel",
-        },
-        {
-          text: "Напусни",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              if (!groupId || typeof groupId !== "string") {
-                console.error("❌ Грешка: groupId не е валиден", groupId);
-                Alert.alert("Грешка", "Групата не може да бъде намерена.");
-                return;
-              }
-              const userRef = doc(firestore, `users/${userId}`);
-              const memberRef = doc(firestore, `groups/${groupId}/members/${userId}`);
-              const groupRef = doc(firestore, `groups/${groupId}`);
-              const userSnap = await getDoc(userRef);
-              if (userSnap.exists()) {
-                const userData = userSnap.data();
-                const currentRoles = userData.roles || [];
-                let updatedRoles = [...currentRoles];
-                let isMember = currentRoles.includes("member");
-                let isGuestInGroup = currentRoles.includes(`guest{${groupName}}`);
-                if (isGuestInGroup) {
-                  updatedRoles = currentRoles.filter(role => role !== `guest{${groupName}}`);
-                } else if (isMember) {
-                  updatedRoles = currentRoles.filter(role => role.startsWith("guest{"));
-                  updatedRoles.push("hunter");
-                }
-                const updatedGroups = userData.groups ? userData.groups.filter(group => group !== groupId) : [];
-                const groupSnap = await getDoc(groupRef);
-                if (groupSnap.exists()) {
-                  await updateDoc(groupRef, {
-                    members: arrayRemove(userId)
-                  });
-                } else {
-                  console.warn("⚠ Групата не съществува, пропускаме update");
-                }
-                await deleteDoc(memberRef);
-                await updateDoc(userRef, {
-                  roles: updatedRoles,
-                  groups: updatedGroups,
-                });
-                setUserRoles(updatedRoles);
-              }
-              navigation.replace('Main', { refresh: true });
-            } catch (error) {
-              console.error("❌ Грешка при напускане на групата:", error);
-              Alert.alert("Грешка", "Неуспешно напускане на групата.");
-            }
-          },
-        },
-      ]
-    );
+    try {
+      if (!groupId || typeof groupId !== "string") {
+        console.error("❌ Грешка: groupId не е валиден", groupId);
+        return;
+      }
+      const userRef = doc(firestore, `users/${userId}`);
+      const memberRef = doc(firestore, `groups/${groupId}/members/${userId}`);
+      const groupRef = doc(firestore, `groups/${groupId}`);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const currentRoles = userData.roles || [];
+        let updatedRoles = [...currentRoles];
+        const isMember = currentRoles.includes("member");
+        const isGuestInGroup = currentRoles.includes(`guest{${groupName}}`);
+        if (isGuestInGroup) {
+          updatedRoles = currentRoles.filter(role => role !== `guest{${groupName}}`);
+        } else if (isMember) {
+          updatedRoles = currentRoles.filter(role => role.startsWith("guest{"));
+          updatedRoles.push("hunter");
+        }
+        const updatedGroups = userData.groups ? userData.groups.filter(group => group !== groupId) : [];
+        const groupSnap = await getDoc(groupRef);
+        if (!groupSnap.exists()) {
+          return;
+        }
+        try {
+          await updateDoc(groupRef, {
+            members: arrayRemove(userId),
+          });
+          const leaveMessageData = {
+            text: `${userData.firstName || 'Потребител'} ${userData.lastName || ''} напусна групата`,
+            timestamp: new Date(),
+            userId,
+            systemMessage: true,
+          };
+          const targetCollection = isGuestInGroup ? 'guest_chat_messages' : 'messages';
+          await addDoc(collection(firestore, 'groups', groupId, targetCollection), leaveMessageData);
+        } catch (error) {
+          console.error("Грешка при обработката на напускането на групата:", error);
+        }
+        await deleteDoc(memberRef);
+        await updateDoc(userRef, {
+          roles: updatedRoles,
+          groups: updatedGroups,
+        });
+        setUserRoles(updatedRoles);
+      } else {
+        console.error("UserSnapshot не съществува");
+      }
+      navigation.replace('Main', { refresh: true });
+    } catch (error) {
+      console.error("❌ Грешка при напускане на групата:", error);
+    }
   };
+
+  const { hideHeader } = route.params || {};
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu} style={styles.headerIcon}>
-          <Ionicons 
-            name="menu" 
-            size={28} 
-            color="white" 
-            style={{ transform: [{ rotate: `${menuRotation}deg` }] }}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => navigation.navigate("GroupOverview", { groupId, groupName })}
-          style={styles.headerTitleContainer}
-        >
-          <Text style={styles.headerTitle}>{groupName}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Main')} style={styles.headerIcon}>
-          <Ionicons name="arrow-back" size={28} color="white" />
-        </TouchableOpacity>
-      </View>
+      {!hideHeader && (
+        <View style={styles.header}>
+          <TouchableOpacity onPress={toggleMenu} style={styles.headerIcon}>
+            <Ionicons
+              name="menu"
+              size={28}
+              color="white"
+              style={{ transform: [{ rotate: `${menuRotation}deg` }] }}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("GroupOverview", { groupId, groupName })}
+            style={styles.headerTitleContainer}
+          >
+            <Text style={styles.headerTitle}>{groupName}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Main')} style={styles.headerIcon}>
+            <Ionicons name="arrow-back" size={28} color="white" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {menuVisible && (
         <View style={styles.dropdownMenu}>
@@ -633,7 +664,7 @@ const ChatScreen = ({ route, navigation }) => {
             <Ionicons name="search" size={24} color="white" />
             <Text style={styles.menuText}>Канал за загубени/намерени кучета</Text>
           </TouchableOpacity>
-          { userRoles.includes("chairman") && (
+          {userRoles.includes("chairman") && (
             <TouchableOpacity onPress={() => navigation.navigate('JoinRequestsScreen', { groupId, groupName })} style={styles.menuItem}>
               <Ionicons name="clipboard" size={24} color="white" />
               <Text style={styles.menuText}>Заявки</Text>
@@ -663,7 +694,7 @@ const ChatScreen = ({ route, navigation }) => {
               </TouchableOpacity>
             </>
           )}
-          <TouchableOpacity onPress={leaveGroup} style={[styles.menuItem, { backgroundColor: 'red' }]}> 
+          <TouchableOpacity onPress={leaveGroup} style={[styles.menuItem, { backgroundColor: 'red' }]}>
             <Ionicons name="log-out" size={24} color="white" />
             <Text style={styles.menuText}>Напусни групата</Text>
           </TouchableOpacity>
@@ -694,10 +725,10 @@ const ChatScreen = ({ route, navigation }) => {
       />
 
       {/* Модал за избор на опции при задържане */}
-      <OptionsModal 
-        visible={optionsModalVisible} 
-        message={selectedMessage} 
-        onClose={() => { setOptionsModalVisible(false); setSelectedMessage(null); }} 
+      <OptionsModal
+        visible={optionsModalVisible}
+        message={selectedMessage}
+        onClose={() => { setOptionsModalVisible(false); setSelectedMessage(null); }}
       />
 
       <View style={styles.inputContainer}>
@@ -730,6 +761,8 @@ ChatScreen.propTypes = {
     params: PropTypes.shape({
       groupId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
       groupName: PropTypes.string.isRequired,
+      hideHeader: PropTypes.bool,
+      joined: PropTypes.bool,
     }).isRequired,
   }).isRequired,
   navigation: PropTypes.shape({

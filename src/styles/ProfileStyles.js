@@ -556,4 +556,14 @@ export default StyleSheet.create({
     color: '#000',
     marginVertical: 5,
   },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  userPhone: {
+    fontSize: 16,
+    color: '#ccc',
+    marginLeft: 5,
+  },
 });

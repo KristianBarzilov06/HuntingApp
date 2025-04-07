@@ -279,4 +279,93 @@ export default StyleSheet.create({
     color: 'white',
     textAlign: 'center',
   },
+  marketplaceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2A3B1F',
+    paddingHorizontal: 15,
+    paddingTop: 40,
+    paddingBottom: 10,
+  },
+  marketplaceBackButton: {
+    padding: 5,
+  },
+  groupProfilePic: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  marketplaceHeaderTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  marketplaceHeaderTitle: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  groupInfoModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  groupInfoModalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+  },
+  groupInfoImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 15,
+  },
+  groupInfoTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  groupMembersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginVertical: 15,
+  },
+  groupMember: {
+    alignItems: 'center',
+  },
+  groupMemberRole: {
+    fontSize: 14,
+    color: '#333',
+  },
+  groupMemberName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  groupInfoCloseButton: {
+    backgroundColor: '#D9534F',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  groupInfoCloseButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  systemMessageContainer: {
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  systemMessageText: {
+    fontSize: 14,
+    color: '#ccc',
+    fontStyle: 'italic',
+  },
 });
