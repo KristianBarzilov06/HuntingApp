@@ -4,7 +4,7 @@ export default StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: '#3A3F32',
-    paddingBottom: 20,
+    paddingBottom: 80,
   },
   /* -------------- HEADER -------------- */
   header: {
@@ -424,4 +424,13 @@ export default StyleSheet.create({
     borderRadius: 10,
     marginLeft: 10,
   },
+  createAdButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: '#27ae60',
+    borderRadius: 30,
+    padding: 15,
+    zIndex: 100,
+  }
 });

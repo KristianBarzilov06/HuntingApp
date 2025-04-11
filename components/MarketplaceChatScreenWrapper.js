@@ -1,18 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
-import ChatScreen from './ChatScreen'; // Използваме съществуващия ChatScreen без промени
+import ChatScreen from './ChatScreen';
+import { getAuth } from 'firebase/auth';
+import { firestore } from '../firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 import styles from '../src/styles/ChatStyles';
 
 const MarketplaceChatScreenWrapper = ({ navigation, route }) => {
-    const { groupName, adImage, sellerName } = route.params;
+    const auth = getAuth();
+    const currentUserId = auth.currentUser.uid;
+
+    // Вземаме от route параметрите: име на групата, снимка, Id-та и предварително предаденото buyerFirstName (ако има)
+    const { groupName, adImage, sellerId, buyerId, buyerFirstName } = route.params;
+
+    const [sellerData, setSellerData] = useState(null);
+    const [buyerData, setBuyerData] = useState(null);
     const [groupInfoModalVisible, setGroupInfoModalVisible] = useState(false);
+
+    // Зареждаме данните на продавача
+    useEffect(() => {
+        const fetchSellerData = async () => {
+            try {
+                const sellerDoc = await getDoc(doc(firestore, 'users', sellerId));
+                if (sellerDoc.exists()) {
+                    setSellerData(sellerDoc.data());
+                }
+            } catch (error) {
+                console.error('Error fetching seller data:', error);
+            }
+        };
+        fetchSellerData();
+    }, [sellerId]);
+
+    // Зареждаме данните на купувача (ако buyerId е наличен)
+    useEffect(() => {
+        if (buyerId) {
+            const fetchBuyerData = async () => {
+                try {
+                    const buyerDoc = await getDoc(doc(firestore, 'users', buyerId));
+                    if (buyerDoc.exists()) {
+                        setBuyerData(buyerDoc.data());
+                    }
+                } catch (error) {
+                    console.error('Error fetching buyer data:', error);
+                }
+            };
+            fetchBuyerData();
+        }
+    }, [buyerId]);
+
+    console.log("currentUserId", currentUserId);
+    console.log("sellerId", sellerId);
+    console.log("buyerId", buyerId);
+
+    const sellerDisplayName = (String(currentUserId) === String(sellerId))
+        ? "Вие"
+        : (sellerData?.firstName || "Продавач");
+
+    const buyerDisplayName = (String(currentUserId) === String(buyerId))
+        ? "Вие"
+        : (buyerData?.firstName || buyerFirstName || "Купувач");
 
     const openGroupInfoModal = () => setGroupInfoModalVisible(true);
     const closeGroupInfoModal = () => setGroupInfoModalVisible(false);
 
-    // Подаваме hideHeader: true към ChatScreen, за да не се показва неговият хедър
+    // Подаваме hideHeader: true към ChatScreen, така че неговият header да не се показва
     const modifiedRoute = {
         ...route,
         params: {
@@ -23,22 +77,28 @@ const MarketplaceChatScreenWrapper = ({ navigation, route }) => {
 
     return (
         <View style={{ flex: 1 }}>
-            {/* Специализиран header за marketplace чатове (без профилна снимка) */}
+            {/* Header за marketplace чатове */}
             <View style={styles.marketplaceHeader}>
-                <TouchableOpacity onPress={() => navigation.navigate('Marketplace')} style={styles.marketplaceBackButton}>
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('Marketplace')}
+                    style={styles.marketplaceBackButton}
+                >
                     <Ionicons name="arrow-back" size={24} color="white" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={openGroupInfoModal} style={styles.marketplaceHeaderTitleContainer}>
+                <TouchableOpacity
+                    onPress={openGroupInfoModal}
+                    style={styles.marketplaceHeaderTitleContainer}
+                >
                     <Text style={styles.marketplaceHeaderTitle} numberOfLines={1}>
                         {groupName}
                     </Text>
                 </TouchableOpacity>
             </View>
 
-            {/* Използваме съществуващия ChatScreen, като подаваме hideHeader: true */}
-            <ChatScreen {...{ navigation }} route={modifiedRoute} />
+            {/* ChatScreen с модифицираните параметри */}
+            <ChatScreen navigation={navigation} route={modifiedRoute} />
 
-            {/* Модал със списък от участници – над участниците се показва снимката на обявата */}
+            {/* Модал със списък от участници */}
             <Modal
                 visible={groupInfoModalVisible}
                 transparent
@@ -56,14 +116,17 @@ const MarketplaceChatScreenWrapper = ({ navigation, route }) => {
                         <View style={styles.groupMembersContainer}>
                             <View style={styles.groupMember}>
                                 <Text style={styles.groupMemberRole}>Продавач</Text>
-                                <Text style={styles.groupMemberName}>{sellerName || "Продавач"}</Text>
+                                <Text style={styles.groupMemberName}>{sellerDisplayName}</Text>
                             </View>
                             <View style={styles.groupMember}>
-                                <Text style={styles.groupMemberRole}>Куповач</Text>
-                                <Text style={styles.groupMemberName}>Вие</Text>
+                                <Text style={styles.groupMemberRole}>Купувач</Text>
+                                <Text style={styles.groupMemberName}>{buyerDisplayName}</Text>
                             </View>
                         </View>
-                        <TouchableOpacity onPress={closeGroupInfoModal} style={styles.groupInfoCloseButton}>
+                        <TouchableOpacity
+                            onPress={closeGroupInfoModal}
+                            style={styles.groupInfoCloseButton}
+                        >
                             <Text style={styles.groupInfoCloseButtonText}>Затвори</Text>
                         </TouchableOpacity>
                     </View>
@@ -79,8 +142,9 @@ MarketplaceChatScreenWrapper.propTypes = {
         params: PropTypes.shape({
             groupName: PropTypes.string.isRequired,
             adImage: PropTypes.string,
-            sellerName: PropTypes.string.isRequired,
-            // Другите параметри, които се използват от ChatScreen
+            sellerId: PropTypes.string.isRequired,
+            buyerId: PropTypes.string,
+            buyerFirstName: PropTypes.string,
         }).isRequired,
     }).isRequired,
 };

@@ -147,6 +147,7 @@ const Profile = ({ route, navigation, groupId }) => {
     const profileData = {
       firstName: user.firstName,
       lastName: user.lastName,
+      email: user.email, // Добавяме имейла тук!
       phone: user.phone || '',
       bio,
       licenseType,
@@ -355,29 +356,22 @@ const Profile = ({ route, navigation, groupId }) => {
   };
 
   // Функции за работа с куче
-  const handleDogPictureChange = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Нужно разрешение', 'Моля, дайте разрешение за достъп до галерията.');
-      return;
-    }
+  const uploadDogPicture = async (localUri) => {
     try {
-      const pickerResult = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
-      if (!pickerResult.canceled) {
-        const selectedImage = pickerResult.assets && pickerResult.assets[0];
-        if (selectedImage?.uri) {
-          setDogForm({ ...dogForm, dogPicture: selectedImage.uri });
-        }
-      }
+      const response = await fetch(localUri);
+      const blob = await response.blob();
+      const storage = getStorage();
+      // Използваме userId и текущото време за уникално наименование
+      const fileRef = ref(storage, `dogPictures/${userId}_${Date.now()}`);
+      await uploadBytes(fileRef, blob);
+      const downloadUrl = await getDownloadURL(fileRef);
+      return downloadUrl;
     } catch (error) {
-      console.error('Грешка при избора на снимка за куче:', error.message);
+      console.error('Грешка при качване на кучешката снимка:', error);
+      return null;
     }
   };
+  
 
   const openDogModal = (dog = null, index = null) => {
     if (dog) {
@@ -439,23 +433,84 @@ const Profile = ({ route, navigation, groupId }) => {
     }
   };
 
+  const handleDogPictureChange = async () => {
+    // Заявка за разрешение за достъп до галерията
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Нужно разрешение', 'Моля, дайте разрешение за достъп до галерията.');
+      return;
+    }
+    
+    try {
+      // Отваряне на галерията за избора на изображение
+      const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      
+      // Ако потребителят не е откачил избора
+      if (!pickerResult.canceled) {
+        const selectedImage = pickerResult.assets && pickerResult.assets[0];
+        if (selectedImage?.uri) {
+          setDogForm({ ...dogForm, dogPicture: selectedImage.uri });
+        }
+      }
+    } catch (error) {
+      console.error('Грешка при избора на кучешка снимка:', error.message);
+      Alert.alert('Грешка', 'Неуспешно избиране на кучешка снимка. Опитайте отново.');
+    }
+  };
+  
+
   const handleSaveDog = async () => {
+    let dogDataToSave = { ...dogForm };
+  
+    // Ако избраната снимка е локален URI, качваме я и обновяваме полето с URL
+    if (dogForm.dogPicture && dogForm.dogPicture.startsWith('file://')) {
+      const downloadUrl = await uploadDogPicture(dogForm.dogPicture);
+      if (downloadUrl) {
+        dogDataToSave.dogPicture = downloadUrl;
+      }
+    }
+  
+    // Ако датата на раждане е от тип Date, конвертираме я в ISO формат
+    if (dogDataToSave.dogBirthDate instanceof Date) {
+      dogDataToSave.dogBirthDate = dogDataToSave.dogBirthDate.toISOString();
+    }
+  
     let updatedDogs;
     if (isEditingDog && editingDogIndex !== null) {
       // Редакция
       updatedDogs = [...dogs];
-      updatedDogs[editingDogIndex] = dogForm;
+      updatedDogs[editingDogIndex] = dogDataToSave;
     } else {
       // Добавяне
-      updatedDogs = [...dogs, dogForm];
+      updatedDogs = [...dogs, dogDataToSave];
     }
-
+  
     setDogs(updatedDogs);
-
+  
     try {
       const userDocRef = doc(firestore, 'users', userId);
       await updateDoc(userDocRef, { dogs: updatedDogs });
-      setDogForm({ dogPicture: null, dogName: '', dogBreed: '' /* ... */ });
+      setDogForm({
+        dogPicture: null,
+        dogName: '',
+        dogBreed: '',
+        dogBirthDate: null,
+        dogSex: 'male',
+        dogColor: '',
+        hasVaccination: false,
+        hasPassport: false,
+        skills: {
+          retrieving: false,
+          birdHunting: false,
+          hareHunting: false,
+          boarTracking: false,
+        },
+      });
       setDogModalVisible(false);
       setIsEditingDog(false);
       setEditingDogIndex(null);
@@ -515,7 +570,17 @@ const Profile = ({ route, navigation, groupId }) => {
             )}
             <View style={styles.emailContainer}>
               <Ionicons name="mail" size={16} color="#ccc" />
-              <Text style={styles.userEmail}>{user.email}</Text>
+              {isEditing ? (
+                <TextInput
+                  style={styles.emailInput}
+                  placeholder="Имейл"
+                  value={user.email}
+                  onChangeText={(text) => setUser(prev => ({ ...prev, email: text }))}
+                  keyboardType="email-address"
+                />
+              ) : (
+                <Text style={styles.userEmail}>{user.email}</Text>
+              )}
             </View>
             {isEditing ? (
               <TextInput

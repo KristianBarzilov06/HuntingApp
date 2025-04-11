@@ -20,6 +20,7 @@ import styles from '../src/styles/MarketplaceStyles';
 import { getAuth } from 'firebase/auth';
 import { firestore } from '../firebaseConfig';
 import { doc, getDoc, collection, addDoc, getDocs, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Ionicons } from '@expo/vector-icons';
 
 // Функция за извличане на разговорите от Firestore
@@ -160,6 +161,23 @@ const Marketplace = ({ navigation }) => {
         }
     };
 
+    const uploadAdImage = async (imageUri, userId) => {
+        try {
+            const response = await fetch(imageUri);
+            const blob = await response.blob();
+            const storage = getStorage();
+            // Генерираме уникално име с потребителски id и timestamp
+            const timestamp = new Date().getTime();
+            const imageRef = ref(storage, `marketplaceAds/${userId}_${timestamp}`);
+            await uploadBytes(imageRef, blob);
+            const downloadURL = await getDownloadURL(imageRef);
+            return downloadURL;
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            return null;
+        }
+    };
+
     const parsePriceInput = (input) => {
         const trimmed = input.trim();
         if (!trimmed) {
@@ -269,7 +287,18 @@ const Marketplace = ({ navigation }) => {
             Alert.alert('Грешка', 'Моля попълнете всички полета.');
             return;
         }
+
         const priceInCents = parsePriceInput(priceInput);
+
+        // Ако uploadedImage е локален URI, качваме го и получаваме публичния URL
+        let finalImageURL = uploadedImage;
+        if (uploadedImage && uploadedImage.startsWith("file://")) {
+            const uploadedUrl = await uploadAdImage(uploadedImage, userId);
+            if (uploadedUrl) {
+                finalImageURL = uploadedUrl;
+            }
+        }
+
         const newAd = {
             id: new Date().toISOString(),
             category,
@@ -277,7 +306,7 @@ const Marketplace = ({ navigation }) => {
             description,
             price: priceInCents,
             selectedItem,
-            uploadedImage,
+            uploadedImage: finalImageURL,  // Записваме публичния URL
             userId,
             userName: userData.firstName && userData.lastName
                 ? `${userData.firstName} ${userData.lastName}`
@@ -288,6 +317,7 @@ const Marketplace = ({ navigation }) => {
             articleName,
             creationDate: new Date().toISOString(),
         };
+
         try {
             const docRef = await addDoc(collection(firestore, 'marketplace'), newAd);
             newAd.id = docRef.id;
@@ -368,8 +398,9 @@ const Marketplace = ({ navigation }) => {
                         sellerFirstName: ad.sellerFirstName || (ad.userName ? ad.userName.split(' ')[0] : "Без"),
                         sellerLastName: ad.sellerLastName || (ad.userName ? ad.userName.split(' ').slice(1).join(' ') : "име"),
                         buyerId: userId,
+                        buyerFirstName: userData?.firstName || "Без", // Извличаме първото име на куповача от userData
                         createdAt: new Date(),
-                        adImage: ad.uploadedImage 
+                        adImage: ad.uploadedImage
                     };
                     const docRef = await addDoc(convosRef, newConversation);
                     conversation = { id: docRef.id, ...newConversation };
@@ -382,9 +413,11 @@ const Marketplace = ({ navigation }) => {
                     sellerId: ad.userId,
                     sellerFirstName: ad.sellerFirstName || (ad.userName ? ad.userName.split(' ')[0] : "Без"),
                     sellerLastName: ad.sellerLastName || (ad.userName ? ad.userName.split(' ').slice(1).join(' ') : "име"),
+                    buyerId: conversation.buyerId || userId,
+                    buyerFirstName: conversation.buyerFirstName || userData?.firstName || "Без",
                     adImage: conversation.adImage || ad.uploadedImage,
                     conversationId: conversation.id,
-                });
+                  });
             } catch (error) {
                 console.error("Error creating or retrieving conversation:", error);
                 Alert.alert("Грешка", "Неуспешно създаване на чат.");
@@ -420,10 +453,14 @@ const Marketplace = ({ navigation }) => {
             chatType: 'marketplace',
             conversationId: conversation.id,
             sellerId: conversation.sellerId,
-            sellerName: conversation.sellerFirstName,
+            sellerFirstName: conversation.sellerFirstName,
+            buyerId: conversation.buyerId, 
+            buyerFirstName: conversation.buyerFirstName,
+            adImage: conversation.adImage
         });
         setChatListVisible(false);
     };
+    
 
     // Функция за отваряне на модал за цял екран със снимката
     const openFullScreen = (uri) => {
@@ -617,12 +654,12 @@ const Marketplace = ({ navigation }) => {
                                             {ad.userOrganization ? (
                                                 <Text style={styles.adUserGroup} numberOfLines={1}>{ad.userOrganization}</Text>
                                             ) : null}
+                                            {ad.userPhone ? (
+                                                <Text style={styles.adUserPhone}>Тел.номер: {ad.userPhone}</Text>
+                                            ) : null}
                                         </View>
                                     </View>
                                     <View style={styles.adFooterRight}>
-                                        {ad.userPhone ? (
-                                            <Text style={styles.adUserPhone}>Тел.номер: {ad.userPhone}</Text>
-                                        ) : null}
                                         {ad.userId === userId ? (
                                             <TouchableOpacity style={styles.adEditButton} onPress={() => handleEditAd(ad)}>
                                                 <Text style={styles.adEditButtonText} numberOfLines={1} ellipsizeMode="tail">
@@ -638,6 +675,7 @@ const Marketplace = ({ navigation }) => {
                                         )}
                                     </View>
                                 </View>
+
                             </View>
                         );
                     })
@@ -646,9 +684,30 @@ const Marketplace = ({ navigation }) => {
                 )}
             </ScrollView>
 
+            <TouchableOpacity
+                style={styles.createAdButton}
+                onPress={() => {
+                    setAdTitle('');
+                    setDescription('');
+                    setPriceInput('');
+                    setArticleName('');
+                    setSelectedItem(null);
+                    setUploadedImage(null);
+
+                    setModalVisible(true);
+                    setIsEditing(false);
+                    setEditingAd(null);
+                }}
+            >
+                <Ionicons name="add" size={30} color="white" />
+            </TouchableOpacity>
+
             {/* Modal за Създаване/Редакция на обява */}
             <Modal visible={modalVisible} animationType="slide" transparent>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalCenteredView}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.modalCenteredView}
+                >
                     <View style={styles.modalContainer}>
                         <ScrollView contentContainerStyle={{ paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
                             {isEditing ? (
@@ -657,7 +716,7 @@ const Marketplace = ({ navigation }) => {
                                 <Text style={styles.modalTitle}>Нова обява</Text>
                             )}
 
-                            {/* Полета за попълване */}
+                            {/* Полетата за попълване */}
                             <View style={styles.categoryContainer}>
                                 <TouchableOpacity
                                     onPress={() => setCategory('dogs')}
@@ -694,13 +753,7 @@ const Marketplace = ({ navigation }) => {
                                     {dogs.length > 0 ? (
                                         <View style={styles.pickerContainer}>
                                             <Picker
-                                                selectedValue={
-                                                    selectedItem
-                                                        ? selectedItem.id !== undefined
-                                                            ? selectedItem.id
-                                                            : dogs.indexOf(selectedItem)
-                                                        : ''
-                                                }
+                                                selectedValue={selectedItem ? (selectedItem.id !== undefined ? selectedItem.id : dogs.indexOf(selectedItem)) : ''}
                                                 onValueChange={(itemValue) => {
                                                     const dog = dogs.find((d, index) =>
                                                         d.id !== undefined ? d.id === itemValue : index === itemValue
@@ -730,13 +783,7 @@ const Marketplace = ({ navigation }) => {
                                     {weapons.length > 0 ? (
                                         <View style={styles.pickerContainer}>
                                             <Picker
-                                                selectedValue={
-                                                    selectedItem
-                                                        ? selectedItem.id !== undefined
-                                                            ? selectedItem.id
-                                                            : weapons.indexOf(selectedItem)
-                                                        : ''
-                                                }
+                                                selectedValue={selectedItem ? (selectedItem.id !== undefined ? selectedItem.id : weapons.indexOf(selectedItem)) : ''}
                                                 onValueChange={(itemValue) => {
                                                     const weapon = weapons.find((w, index) =>
                                                         w.id !== undefined ? w.id === itemValue : index === itemValue
@@ -801,6 +848,7 @@ const Marketplace = ({ navigation }) => {
                             </TouchableOpacity>
                             {uploadedImage && <Image source={{ uri: uploadedImage }} style={styles.uploadedImage} />}
 
+                            {/* Тук поставете бутона за изпращане */}
                             <TouchableOpacity
                                 onPress={handleSubmit}
                                 style={[styles.submitButton, isSaving && { opacity: 0.6 }]}
@@ -815,6 +863,7 @@ const Marketplace = ({ navigation }) => {
                                 )}
                             </TouchableOpacity>
 
+                            {/* Ако е в режим на редактиране, може да имате и бутон за изтриване */}
                             {isEditing && (
                                 <TouchableOpacity
                                     style={[styles.cancelButton, { backgroundColor: '#B22222' }]}
