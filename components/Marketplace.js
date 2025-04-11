@@ -397,8 +397,11 @@ const Marketplace = ({ navigation }) => {
                         sellerId: ad.userId,
                         sellerFirstName: ad.sellerFirstName || (ad.userName ? ad.userName.split(' ')[0] : "Без"),
                         sellerLastName: ad.sellerLastName || (ad.userName ? ad.userName.split(' ').slice(1).join(' ') : "име"),
+                        sellerProfilePhoto: ad.userProfilePhoto,
                         buyerId: userId,
-                        buyerFirstName: userData?.firstName || "Без", // Извличаме първото име на куповача от userData
+                        buyerFirstName: userData?.firstName || "Без",
+                        buyerLastName: userData?.lastName || "",
+                        buyerProfilePhoto: userData?.profilePicture || null,
                         createdAt: new Date(),
                         adImage: ad.uploadedImage
                     };
@@ -417,7 +420,7 @@ const Marketplace = ({ navigation }) => {
                     buyerFirstName: conversation.buyerFirstName || userData?.firstName || "Без",
                     adImage: conversation.adImage || ad.uploadedImage,
                     conversationId: conversation.id,
-                  });
+                });
             } catch (error) {
                 console.error("Error creating or retrieving conversation:", error);
                 Alert.alert("Грешка", "Неуспешно създаване на чат.");
@@ -445,7 +448,6 @@ const Marketplace = ({ navigation }) => {
             Alert.alert("Грешка", "Неуспешно изтриване на разговора.");
         }
     };
-
     const openChatFromList = (conversation) => {
         navigation.navigate('MarketplaceChatScreenWrapper', {
             groupId: conversation.id,
@@ -454,13 +456,17 @@ const Marketplace = ({ navigation }) => {
             conversationId: conversation.id,
             sellerId: conversation.sellerId,
             sellerFirstName: conversation.sellerFirstName,
-            buyerId: conversation.buyerId, 
+            sellerLastName: conversation.sellerLastName,
+            sellerProfilePhoto: conversation.sellerProfilePhoto,
+            buyerId: conversation.buyerId,
             buyerFirstName: conversation.buyerFirstName,
+            buyerLastName: conversation.buyerLastName,
+            buyerProfilePhoto: conversation.buyerProfilePhoto,
             adImage: conversation.adImage
         });
         setChatListVisible(false);
     };
-    
+
 
     // Функция за отваряне на модал за цял екран със снимката
     const openFullScreen = (uri) => {
@@ -501,33 +507,41 @@ const Marketplace = ({ navigation }) => {
                 <View style={styles.chatListModalContainer}>
                     <Text style={styles.chatListModalTitle}>Вашите разговори</Text>
                     <ScrollView>
-                        {conversations.map((conv) => (
-                            <View key={conv.id} style={styles.chatListItem}>
-                                <View style={styles.chatListItemInfo}>
-                                    {conv.sellerProfilePhoto ? (
-                                        <Image source={{ uri: conv.sellerProfilePhoto }} style={styles.chatListProfilePhoto} />
-                                    ) : (
-                                        <Ionicons name="person-circle-outline" size={40} color="#999" />
-                                    )}
-                                    <View style={styles.chatListTextContainer}>
-                                        <Text style={styles.chatListAdTitle} numberOfLines={1}>
-                                            {conv.adTitle}
-                                        </Text>
-                                        <Text style={styles.chatListSellerName}>
-                                            {conv.sellerFirstName} {conv.sellerLastName}
-                                        </Text>
+                        {conversations.map((conv) => {
+                            const isSellerUser = String(userId) === String(conv.sellerId);
+                            const displayPhoto = isSellerUser ? conv.buyerProfilePhoto : conv.sellerProfilePhoto;
+                            const displayName = isSellerUser
+                                ? `Купувач: ${conv.buyerFirstName || ""} ${conv.buyerLastName || ""}`.trim()
+                                : `Продавач: ${conv.sellerFirstName || ""} ${conv.sellerLastName || ""}`.trim();
+
+                            return (
+                                <View key={conv.id} style={styles.chatListItem}>
+                                    <View style={styles.chatListItemInfo}>
+                                        {displayPhoto ? (
+                                            <Image source={{ uri: displayPhoto }} style={styles.chatListProfilePhoto} />
+                                        ) : (
+                                            <Ionicons name="person-circle-outline" size={40} color="#999" />
+                                        )}
+                                        <View style={styles.chatListTextContainer}>
+                                            <Text style={styles.chatListAdTitle} numberOfLines={1}>
+                                                {conv.adTitle}
+                                            </Text>
+                                            <Text style={styles.chatListSellerName}>
+                                                {displayName}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <View style={{ flexDirection: 'row' }}>
+                                        <TouchableOpacity onPress={() => openChatFromList(conv)} style={styles.chatListOpenButton}>
+                                            <Ionicons name="chatbubbles" size={24} color="white" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => deleteConversation(conv.id)} style={styles.chatListDeleteButton}>
+                                            <Ionicons name="trash" size={24} color="white" />
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
-                                <View style={{ flexDirection: 'row' }}>
-                                    <TouchableOpacity onPress={() => openChatFromList(conv)} style={styles.chatListOpenButton}>
-                                        <Ionicons name="chatbubbles" size={24} color="white" />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => deleteConversation(conv.id)} style={styles.chatListDeleteButton}>
-                                        <Ionicons name="trash" size={24} color="white" />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ))}
+                            );
+                        })}
                     </ScrollView>
                     <TouchableOpacity onPress={closeChatListModal} style={styles.chatListCloseButton}>
                         <Text style={styles.chatListCloseButtonText}>Затвори</Text>
