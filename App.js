@@ -15,6 +15,7 @@ import GroupOverview from './components/GroupOverview';
 import JoinRequestsScreen from './components/JoinRequestsScreen';
 import Marketplace from './components/Marketplace';
 import MarketplaceChatScreenWrapper from './components/MarketplaceChatScreenWrapper';
+import LostDogsScreen from './components/LostDogsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -44,6 +45,7 @@ const App = () => {
         <Stack.Screen name="JoinRequestsScreen" component={JoinRequestsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Marketplace" component={Marketplace} options={{ headerShown: false }} />
         <Stack.Screen name="MarketplaceChatScreenWrapper" component={MarketplaceChatScreenWrapper} options={{ headerShown: false }} />
+        <Stack.Screen name="LostDogsScreen" component={LostDogsScreen} options={{ headerShown: false}} />
       </Stack.Navigator>
     </NavigationContainer>
   );

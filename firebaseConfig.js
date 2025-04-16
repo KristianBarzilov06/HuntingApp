@@ -11,8 +11,8 @@ const firebaseConfig = {
   projectId: "huntingappchat-88aa7",
   storageBucket: "huntingappchat-88aa7.firebasestorage.app",
   messagingSenderId: "1076822400965",
-  appId: "1:1076822400965:web:324bf8cd4aabbb128f75ac",
-  measurementId: "G-HF3N0M89VS"
+  appId: "1:1076822400965:web:0ce06099265e057c8f75ac",
+  measurementId: "G-RTN1DP6WQ8"
 };
 
 const app = initializeApp(firebaseConfig);

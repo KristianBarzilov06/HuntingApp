@@ -660,9 +660,8 @@ const ChatScreen = ({ route, navigation }) => {
             <Ionicons name="cart" size={24} color="white" />
             <Text style={styles.menuText}>Канал за покупко-продажба</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert('Lost & Found feature coming soon!')} style={styles.menuItem}>
-            <Ionicons name="search" size={24} color="white" />
-            <Text style={styles.menuText}>Канал за загубени/намерени кучета</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('LostDogsScreen')}>
+            <Text style={styles.menuItem}>Загубени/Намерени кучета</Text>
           </TouchableOpacity>
           {userRoles.includes("chairman") && (
             <TouchableOpacity onPress={() => navigation.navigate('JoinRequestsScreen', { groupId, groupName })} style={styles.menuItem}>
@@ -673,14 +672,6 @@ const ChatScreen = ({ route, navigation }) => {
           <TouchableOpacity onPress={() => navigation.navigate('EventsScreen', { groupId, groupName })} style={styles.menuItem}>
             <Ionicons name="calendar" size={24} color="white" />
             <Text style={styles.menuText}>Канал за събития</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={uploadMediaFromGallery} style={styles.menuItem}>
-            <Ionicons name="images" size={24} color="white" />
-            <Text style={styles.menuText}>Галерия</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={takeMediaWithCamera} style={styles.menuItem}>
-            <Ionicons name="camera" size={24} color="white" />
-            <Text style={styles.menuText}>Камера</Text>
           </TouchableOpacity>
           {userRoles.includes("admin") && (
             <>
