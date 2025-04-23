@@ -1,9 +1,7 @@
-import { StyleSheet } from 'react-native';
-import { Dimensions } from 'react-native';
-
+import { StyleSheet, Dimensions } from 'react-native';
 
 export default StyleSheet.create({
-  // За пълноекранната галерия:
+  /* FULLSCREEN GALLERY */
   fullScreenContainer: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.9)',
@@ -24,7 +22,7 @@ export default StyleSheet.create({
     right: 20,
   },
 
-  // За модала за добавяне на снимки
+  /* IMAGE PICKER / GALLERY PREVIEW */
   mainImageContainer: {
     position: 'relative',
     marginBottom: 10,
@@ -59,7 +57,8 @@ export default StyleSheet.create({
     top: 2,
     right: 2,
   },
-  // За ad card – колаж
+
+  /* COLLAGE FOR ADS (карти) */
   collageContainer: {
     flexDirection: 'row',
     height: 200,
@@ -117,12 +116,13 @@ export default StyleSheet.create({
     borderRadius: 8,
   },
 
+  /* CONTAINER & HEADER */
   container: {
     flexGrow: 1,
     backgroundColor: '#3A3F32',
     paddingBottom: 80,
+    paddingHorizontal: 15,
   },
-  /* -------------- HEADER -------------- */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -147,7 +147,7 @@ export default StyleSheet.create({
     borderRadius: 20,
   },
 
-  /* -------------- SORT -------------- */
+  /* SORT MENU */
   sortContainer: {
     backgroundColor: '#2A3B1F',
     paddingVertical: 10,
@@ -193,7 +193,7 @@ export default StyleSheet.create({
     fontSize: 16,
   },
 
-  /* -------------- MODAL -------------- */
+  /* MODAL */
   modalCenteredView: {
     flex: 1,
     justifyContent: 'center',
@@ -219,7 +219,7 @@ export default StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* -------------- FORM -------------- */
+  /* FORM */
   categoryContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -304,7 +304,7 @@ export default StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  /* -------------- ADS LIST -------------- */
+  /* ADS LIST */
   noAdsText: {
     color: 'white',
     fontSize: 18,
@@ -312,14 +312,13 @@ export default StyleSheet.create({
     marginVertical: 20,
   },
 
-  /* -------------- SINGLE AD (CARD) -------------- */
+  /* AD CARD */
   adCard: {
     backgroundColor: '#E0E0E0',
     borderRadius: 10,
     marginHorizontal: 15,
     marginVertical: 10,
     overflow: 'hidden',
-    // Сенки
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -329,22 +328,20 @@ export default StyleSheet.create({
   adFooterRight: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    // Задаваме максимална ширина за бутона, за да не го изтласка съдържанието
-    maxWidth: 150, // Можете да експериментирате с тази стойност
+    maxWidth: 150,
   },
   adEditButton: {
     backgroundColor: '#007bff',
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 5,
-    flexShrink: 1, // Позволява на бутона да се свива, ако е необходимо
+    flexShrink: 1,
   },
   adEditButtonText: {
     color: '#fff',
     fontWeight: 'bold',
-    flexShrink: 1, // Позволява на текста да се свива
+    flexShrink: 1,
   },
-  /* Горна лента: заглавие и дата */
   adHeader: {
     backgroundColor: '#A1A251',
     flexDirection: 'row',
@@ -364,7 +361,6 @@ export default StyleSheet.create({
     color: '#333',
     marginLeft: 10,
   },
-  /* Контейнер за снимката */
   adImageContainer: {
     backgroundColor: '#CED095',
     alignItems: 'center',
@@ -377,7 +373,7 @@ export default StyleSheet.create({
     resizeMode: 'cover',
   },
 
-  /* Ред за описание + детайли */
+  /* DESCRIPTION & DETAILS */
   adDetailsRow: {
     flexDirection: 'row',
   },
@@ -409,31 +405,27 @@ export default StyleSheet.create({
   },
   priceOptionsContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',      // Позволява бутоните да "развалят" реда, ако няма достатъчно място
-    justifyContent: 'space-around', // Разпределя равномерно бутоните в реда
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
     marginVertical: 10,
   },
-
   priceOptionButton: {
     backgroundColor: '#555',
-    paddingVertical: 6,   // Намалено вертикално отстояние
-    paddingHorizontal: 8, // Намалено хоризонтално отстояние
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: 8,
-    margin: 4,            // Малък маргин между бутоните
-    minWidth: 100,        // Фиксирана минимална ширина, за да не станат много тесни
-    alignItems: 'center', // Центриране на текста
+    margin: 4,
+    minWidth: 100,
+    alignItems: 'center',
   },
-
   priceOptionButtonSelected: {
     backgroundColor: '#76A325',
   },
-
   priceOptionText: {
     color: '#FFF',
-    fontSize: 14,       // Малко по-малък размер на шрифта
+    fontSize: 14,
     fontWeight: 'bold',
   },
-  // Ако запазвате отделен контейнер за въвеждането на фиксирана цена:
   priceContainer: {
     backgroundColor: '#333',
     borderWidth: 1,
@@ -452,7 +444,6 @@ export default StyleSheet.create({
     backgroundColor: '#444',
     marginTop: 5,
   },
-  // За показване на цената в ад картата:
   priceDisplayContainer: {
     backgroundColor: '#F7F7F7',
     paddingVertical: 5,
@@ -467,7 +458,7 @@ export default StyleSheet.create({
     color: '#76A325',
   },
 
-  /* Footer: потребител, телефон, бутон */
+  /* FOOTER */
   adFooter: {
     backgroundColor: '#D9D9D9',
     flexDirection: 'row',
@@ -511,6 +502,8 @@ export default StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+
+  /* CHAT MODAL */
   chatListModalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -578,6 +571,8 @@ export default StyleSheet.create({
     borderRadius: 10,
     marginLeft: 10,
   },
+
+  /* FLOATING ADD BUTTON */
   createAdButton: {
     position: 'absolute',
     bottom: 20,
@@ -587,11 +582,13 @@ export default StyleSheet.create({
     padding: 15,
     zIndex: 100,
   },
+
+  /* DOG DETAILS & SCROLLABLE INFO */
   dogDetailsWrapper: {
     marginVertical: 10,
   },
   scrollableInfoContainer: {
-    maxHeight: 150, // Можете да регулирате тази височина според дизайна
+    maxHeight: 150,
     backgroundColor: '#333',
     borderWidth: 1,
     borderColor: '#555',

@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
 
 export default StyleSheet.create({
   container: {
@@ -7,6 +7,7 @@ export default StyleSheet.create({
     paddingBottom: 80,
     paddingHorizontal: 15,
   },
+
   /* -------------- HEADER -------------- */
   header: {
     flexDirection: 'row',
@@ -129,21 +130,21 @@ export default StyleSheet.create({
     marginBottom: 5,
   },
   input: {
-    backgroundColor: '#333',
+    backgroundColor: '#444',
     padding: 12,
     borderRadius: 8,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#555',
+    borderColor: '#777',
     color: '#FFF',
     fontSize: 16,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#555',
+    borderColor: '#777',
     borderRadius: 8,
     marginBottom: 15,
-    backgroundColor: '#333',
+    backgroundColor: '#444',
   },
   imagePickerButton: {
     backgroundColor: '#007bff',
@@ -273,7 +274,7 @@ export default StyleSheet.create({
     resizeMode: 'cover',
   },
 
-  /* Ред за описание + детайли */
+  /* Description + details row */
   adDetailsRow: {
     flexDirection: 'row',
   },
@@ -310,7 +311,7 @@ export default StyleSheet.create({
     marginTop: 10,
   },
 
-  /* Footer: потребител, телефон, бутон */
+  /* Footer: user, phone, button */
   adFooter: {
     backgroundColor: '#D9D9D9',
     flexDirection: 'row',
@@ -355,7 +356,7 @@ export default StyleSheet.create({
     fontWeight: 'bold',
   },
 
-  /* Чат модал */
+  /* CHAT MODAL */
   chatListModalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -424,7 +425,7 @@ export default StyleSheet.create({
     marginLeft: 10,
   },
 
-  /* Плаващ бутон за създаване */
+  /* FLOATING ADD BUTTON */
   createAdButton: {
     position: 'absolute',
     bottom: 20,
@@ -435,7 +436,7 @@ export default StyleSheet.create({
     zIndex: 100,
   },
 
-  /* -------------- TOGGLE (Изгубено / Намерено) -------------- */
+  /* TOGGLE (lost/found) */
   toggleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -458,5 +459,68 @@ export default StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textTransform: 'uppercase',
+  },
+
+  /* COLLAGE FOR IMAGES */
+  collageContainer: {
+    flexDirection: 'row',
+    height: 200,
+    marginVertical: 5,
+  },
+  collageLeft: {
+    flex: 2,
+    marginRight: 2,
+  },
+  collageRight: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  collageBigImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    borderRadius: 8,
+  },
+  collageSmallWrapper: {
+    flex: 1,
+    marginVertical: 2,
+    position: 'relative',
+  },
+  collageSmallImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    borderRadius: 8,
+  },
+  collageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  collageOverlayText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  collageContainerSingle: {
+    height: 200,
+    marginVertical: 5,
+  },
+  collageSingleImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    borderRadius: 8,
+  },
+
+  /* FULLSCREEN GALLERY */
+  fullScreenScroll: {
+    width: Dimensions.get('window').width,
   },
 });

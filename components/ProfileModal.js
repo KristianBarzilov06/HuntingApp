@@ -145,17 +145,6 @@ const ProfileModal = ({ userId, visible, onClose }) => {
                   </View>
                 )}
 
-                {/* ЛИЦЕНЗ - Групов лов и Подборен лов */}
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>🛡️ Лиценз</Text>
-                  <Text style={styles.infoText}>
-                    Групов лов - {filteredData.isGroupHunting ? "✅ Разрешен" : "❌ Не е разрешен"}
-                  </Text>
-                  <Text style={styles.infoText}>
-                    Подборен лов - {filteredData.isSelectiveHunting ? "✅ Разрешен" : "❌ Не е разрешен"}
-                  </Text>
-                </View>
-
                 {/* Ловен билет */}
                 {filteredData.huntingLicense && (
                   <View style={styles.infoCard}>

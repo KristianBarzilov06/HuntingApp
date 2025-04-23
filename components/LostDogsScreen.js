@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Image
+  Image,
+  Dimensions
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -43,9 +44,10 @@ const LostDogsScreen = ({ navigation }) => {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [location, setLocation] = useState('');
-  const [uploadedImage, setUploadedImage] = useState(null);
+  // Поддържаме множество снимки – винаги като масив
+  const [uploadedImages, setUploadedImages] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
-
+  const [fullScreenVisible, setFullScreenVisible] = useState(false);
   // Функционалност за редакция
   const [isEditing, setIsEditing] = useState(false);
   const [editingAd, setEditingAd] = useState(null);
@@ -69,7 +71,7 @@ const LostDogsScreen = ({ navigation }) => {
     'Хановерска хрътка',
     'Посавско гонче',
     'Балканско гонче',
-    'Сръбско трицветно гонче',
+    'Сръбско трицветно гонче'
   ];
 
   // Зареждане на обявите от Firebase
@@ -98,7 +100,7 @@ const LostDogsScreen = ({ navigation }) => {
     fetchAds();
   }, []);
 
-  // Функция за избор и качване на снимка
+  // Функция за избор и качване на снимки
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -111,8 +113,23 @@ const LostDogsScreen = ({ navigation }) => {
       quality: 0.7,
     });
     if (!result.canceled) {
-      setUploadedImage(result.assets[0].uri);
+      const imageUri = result.assets[0].uri;
+      // Запазваме локалния URI, за да може впоследствие да се качи
+      setUploadedImages(prev => [...prev, imageUri]);
     }
+  };
+
+  // Функция за качване на снимки към Firebase – качва всички локални снимки
+  const uploadImagesToFirebase = async () => {
+    const finalURLs = await Promise.all(
+      uploadedImages.map(async (img) => {
+        if (img.startsWith('file://')) {
+          return await uploadImageToFirebase(img);
+        }
+        return img;
+      })
+    );
+    return finalURLs;
   };
 
   const uploadImageToFirebase = async (imageUri) => {
@@ -132,16 +149,43 @@ const LostDogsScreen = ({ navigation }) => {
     }
   };
 
-  // Функция за създаване на нова обява
+  // Функция за премахване на снимка от uploadedImages по индекс
+  const removeImage = (index) => {
+    setUploadedImages(prev => prev.filter((img, i) => i !== index));
+  };
+  const getUploadedImages = (images) => {
+    if (Array.isArray(images)) {
+      return images;
+    } else if (typeof images === 'string' && images.length > 0) {
+      return [images];
+    }
+    return [];
+  };
+
+  const handleEditAd = (ad) => {
+    setEditingAd(ad);
+    setAdType(ad.adType);
+    setDescription(ad.description);
+    setBreed(ad.breed);
+    setGender(ad.gender);
+    setDate(new Date(ad.date));
+    setLocation(ad.location);
+    // Зареждаме качените URL-та (ако има такива) или локални URI-та
+    setUploadedImages(getUploadedImages(ad.uploadedImages));
+    setIsEditing(true);
+    setModalVisible(true);
+  };
+
+  // Функция за създаване на нова обява – качване на всички снимки и записване в Firestore
   const handleCreateAd = async () => {
     if (!description.trim() || !breed.trim() || !gender.trim() || !location.trim()) {
       Alert.alert('Грешка', 'Моля попълнете всички полета.');
       return;
     }
     setIsSaving(true);
-    let finalImageURL = null;
-    if (uploadedImage) {
-      finalImageURL = await uploadImageToFirebase(uploadedImage);
+    let finalImageURLs = [];
+    if (uploadedImages.length > 0) {
+      finalImageURLs = await uploadImagesToFirebase();
     }
     const newAd = {
       adType,
@@ -152,7 +196,7 @@ const LostDogsScreen = ({ navigation }) => {
       location,
       userId: currentUserId,
       creationDate: new Date().toISOString(),
-      uploadedImage: finalImageURL,
+      uploadedImages: finalImageURLs,  // Записваме масива от качени URL-та
     };
     try {
       const docRef = await addDoc(collection(firestore, 'lostFoundDogs'), newAd);
@@ -167,21 +211,6 @@ const LostDogsScreen = ({ navigation }) => {
     setIsSaving(false);
   };
 
-  // Функция за редакция – попълване на формата със стойностите на обявата
-  const handleEditAd = (ad) => {
-    setEditingAd(ad);
-    setAdType(ad.adType);
-    setDescription(ad.description);
-    setBreed(ad.breed);
-    setGender(ad.gender);
-    setDate(new Date(ad.date));
-    setLocation(ad.location);
-    setUploadedImage(ad.uploadedImage);
-    setIsEditing(true);
-    setModalVisible(true);
-  };
-
-  // Запазване на промените в редактирания запис
   const handleSaveChanges = async () => {
     if (!editingAd) return;
     if (!description.trim() || !breed.trim() || !gender.trim() || !location.trim()) {
@@ -189,9 +218,9 @@ const LostDogsScreen = ({ navigation }) => {
       return;
     }
     setIsSaving(true);
-    let finalImageURL = uploadedImage;
-    if (uploadedImage && uploadedImage.startsWith('file://')) {
-      finalImageURL = await uploadImageToFirebase(uploadedImage);
+    let finalImageURLs = [];
+    if (uploadedImages.length > 0) {
+      finalImageURLs = await uploadImagesToFirebase();
     }
     const updatedAd = {
       adType,
@@ -200,7 +229,7 @@ const LostDogsScreen = ({ navigation }) => {
       gender,
       date: date.toISOString(),
       location,
-      uploadedImage: finalImageURL,
+      uploadedImages: finalImageURLs,
     };
     try {
       const docRef = doc(firestore, 'lostFoundDogs', editingAd.id);
@@ -220,7 +249,32 @@ const LostDogsScreen = ({ navigation }) => {
     setEditingAd(null);
   };
 
-  // Функция за нулиране на формата
+  const handleDeleteAd = async () => {
+    if (!editingAd) return;
+    Alert.alert(
+      'Изтриване',
+      'Сигурни ли сте, че искате да изтриете обявата?',
+      [
+        { text: 'Отказ', style: 'cancel' },
+        {
+          text: 'Да, изтрий',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(firestore, 'lostFoundDogs', editingAd.id));
+              setAds(ads.filter((ad) => ad.id !== editingAd.id));
+              Alert.alert('Успешно', 'Обявата е изтрита.');
+              resetForm();
+            } catch (error) {
+              console.error('Error deleting ad:', error);
+              Alert.alert('Грешка', 'Неуспешно изтриване на обявата.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const resetForm = () => {
     setModalVisible(false);
     setAdType('lost');
@@ -229,9 +283,34 @@ const LostDogsScreen = ({ navigation }) => {
     setGender('');
     setDate(new Date());
     setLocation('');
-    setUploadedImage(null);
+    setUploadedImages([]);
     setIsEditing(false);
     setEditingAd(null);
+    setModalVisible(false);
+  };
+
+  // Нови state за пълноекранна галерия
+  const [galleryImages, setGalleryImages] = useState([]);
+  const [currentGalleryIndex, setCurrentGalleryIndex] = useState(0);
+  const scrollViewRef = useRef(null);
+
+  const openGallery = (images, index) => {
+    setGalleryImages(images);
+    setCurrentGalleryIndex(index);
+    setFullScreenVisible(true);
+  };
+
+  const onGalleryScrollEnd = (e) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const width = Dimensions.get('window').width;
+    const index = Math.floor(offsetX / width);
+    setCurrentGalleryIndex(index);
+  };
+
+  const closeGallery = () => {
+    setFullScreenVisible(false);
+    setGalleryImages([]);
+    setCurrentGalleryIndex(0);
   };
 
   return (
@@ -254,9 +333,67 @@ const LostDogsScreen = ({ navigation }) => {
               <Text style={styles.adTitle}>
                 {ad.breed} ({ad.adType === 'lost' ? 'Изгубено' : 'Намерено'})
               </Text>
-              {ad.uploadedImage && (
-                <Image source={{ uri: ad.uploadedImage }} style={styles.uploadedImage} />
+              {/* Ако има качени снимки от обявата, използваме ги за визуализация */}
+              {ad.uploadedImages && ad.uploadedImages.length > 0 ? (
+                // Ако има повече от една снимка – показваме главната снимка отделно и скрит слайдър за останалите
+                ad.uploadedImages.length === 1 ? (
+                  <TouchableOpacity onPress={() => openGallery(ad.uploadedImages, 0)}>
+                    <View style={styles.collageContainerSingle}>
+                      <Image source={{ uri: ad.uploadedImages[0] }} style={styles.collageSingleImage} />
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.collageContainer}>
+                    <View style={styles.collageLeft}>
+                      <TouchableOpacity onPress={() => openGallery(ad.uploadedImages, 0)}>
+                        <Image source={{ uri: ad.uploadedImages[0] }} style={styles.collageBigImage} />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.collageRight}>
+                      <TouchableOpacity onPress={() => openGallery(ad.uploadedImages, 1)} style={styles.collageSmallWrapper}>
+                        <Image source={{ uri: ad.uploadedImages[1] }} style={styles.collageSmallImage} />
+                      </TouchableOpacity>
+                      {ad.uploadedImages.length > 2 && (
+                        <TouchableOpacity onPress={() => openGallery(ad.uploadedImages, 2)} style={styles.collageSmallWrapper}>
+                          <Image source={{ uri: ad.uploadedImages[2] }} style={styles.collageSmallImage} />
+                          {ad.uploadedImages.length > 3 && (
+                            <View style={styles.collageOverlay}>
+                              <Text style={styles.collageOverlayText}>+{ad.uploadedImages.length - 3}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                )
+              ) : (
+                <Text style={{ color: '#555' }}>Без снимка</Text>
               )}
+
+              {/* Пълноекранна галерия */}
+              <Modal
+                visible={fullScreenVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={closeGallery}>
+                <View style={styles.fullScreenContainer}>
+                  <ScrollView
+                    ref={scrollViewRef}
+                    horizontal
+                    pagingEnabled
+                    onMomentumScrollEnd={onGalleryScrollEnd}
+                    contentOffset={{ x: Dimensions.get('window').width * currentGalleryIndex, y: 0 }}
+                    style={styles.fullScreenScroll}>
+                    {galleryImages.map((img, idx) => (
+                      <Image key={idx} source={{ uri: img }} style={styles.fullScreenImage} resizeMode="contain" />
+                    ))}
+                  </ScrollView>
+                  <TouchableOpacity onPress={closeGallery} style={styles.closeButton}>
+                    <Ionicons name="close" size={36} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </Modal>
+
               <Text style={styles.adInfo}>Описание: {ad.description}</Text>
               <Text style={styles.adInfo}>Пол: {ad.gender}</Text>
               <Text style={styles.adInfo}>
@@ -266,7 +403,6 @@ const LostDogsScreen = ({ navigation }) => {
               {/* Footer с данни и бутон за редакция */}
               <View style={styles.adFooter}>
                 <View style={styles.adUserInfo}>
-                  {/* Можете да добавите потребителска снимка, ако има такава */}
                   <Ionicons name="person-circle-outline" size={40} color="#999" style={{ marginRight: 8 }} />
                   <Text style={styles.adUserName}>Вие</Text>
                 </View>
@@ -274,8 +410,7 @@ const LostDogsScreen = ({ navigation }) => {
                   {ad.userId === currentUserId && (
                     <TouchableOpacity
                       style={styles.adEditButton}
-                      onPress={() => handleEditAd(ad)}
-                    >
+                      onPress={() => handleEditAd(ad)}>
                       <Text style={styles.adEditButtonText}>Редактирай обявата</Text>
                     </TouchableOpacity>
                   )}
@@ -288,8 +423,12 @@ const LostDogsScreen = ({ navigation }) => {
         )}
       </ScrollView>
 
-      {/* Плаващ бутон за създаване на нова обява */}
-      <TouchableOpacity style={styles.createAdButton} onPress={() => resetForm()}>
+      <TouchableOpacity
+        style={styles.createAdButton}
+        onPress={() => {
+          resetForm();
+          setModalVisible(true); // Отваря модала за въвеждане на нова обява
+        }}>
         <Ionicons name="add" size={30} color="white" />
       </TouchableOpacity>
 
@@ -303,8 +442,6 @@ const LostDogsScreen = ({ navigation }) => {
               <Text style={styles.modalTitle}>
                 {isEditing ? 'Редакция на обява' : 'Нова обява'}
               </Text>
-
-              {/* Избор между "Изгубено" и "Намерено" */}
               <View style={styles.toggleContainer}>
                 <TouchableOpacity
                   onPress={() => setAdType('lost')}
@@ -337,8 +474,7 @@ const LostDogsScreen = ({ navigation }) => {
                 <Picker
                   selectedValue={breed}
                   onValueChange={(itemValue) => setBreed(itemValue)}
-                  style={{ color: '#FFF' }}
-                >
+                  style={{ color: '#FFF' }}>
                   {dogOptions.map((option, index) => (
                     <Picker.Item key={index} label={option} value={option} />
                   ))}
@@ -350,19 +486,16 @@ const LostDogsScreen = ({ navigation }) => {
                 <Picker
                   selectedValue={gender}
                   onValueChange={(itemValue) => setGender(itemValue)}
-                  style={{ color: '#FFF' }}
-                >
+                  style={{ color: '#FFF' }}>
                   <Picker.Item label="Мъжко" value="male" />
                   <Picker.Item label="Женско" value="female" />
                 </Picker>
               </View>
 
-              <Text style={styles.label}>Дата на която е загубено кучето:</Text>
+              <Text style={styles.label}>Дата на загуба/намиране:</Text>
               <View>
                 <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerButton}>
-                  <Text style={styles.input}>
-                    {date.toLocaleDateString('bg-BG')}
-                  </Text>
+                  <Text style={styles.input}>{date.toLocaleDateString('bg-BG')}</Text>
                 </TouchableOpacity>
                 {showDatePicker && (
                   <DateTimePicker
@@ -379,7 +512,7 @@ const LostDogsScreen = ({ navigation }) => {
                 )}
               </View>
 
-              <Text style={styles.label}>Намерено на тази локация:</Text>
+              <Text style={styles.label}>Локация:</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Въведете локация"
@@ -388,14 +521,48 @@ const LostDogsScreen = ({ navigation }) => {
                 onChangeText={setLocation}
               />
 
-              {/* Бутон за избор на снимка */}
+              {/* Секция за избиране на снимки */}
+              <Text style={styles.label}>Качете снимки:</Text>
               <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
                 <Text style={styles.imagePickerText}>
-                  {uploadedImage ? 'Промени снимка' : 'Избери снимка'}
+                  {uploadedImages.length > 0 ? 'Промени/Добави снимки' : 'Избери снимки'}
                 </Text>
               </TouchableOpacity>
-              {uploadedImage && (
-                <Image source={{ uri: uploadedImage }} style={styles.uploadedImage} />
+              {uploadedImages.length > 0 && (
+                <>
+                  {/* Ако има само една снимка – не показваме слайдър, само я визуализираме */}
+                  {uploadedImages.length === 1 && (
+                    <View style={styles.mainImageContainer}>
+                      <Image source={{ uri: uploadedImages[0] }} style={styles.mainImagePreview} />
+                      <TouchableOpacity style={styles.removeButton} onPress={() => removeImage(0)}>
+                        <Ionicons name="close-circle" size={24} color="red" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {/* Ако има повече от една снимка – главната се показва отделно, а останалите в хоризонтален слайдър */}
+                  {uploadedImages.length > 1 && (
+                    <>
+                      <View style={styles.mainImageContainer}>
+                        <Image source={{ uri: uploadedImages[0] }} style={styles.mainImagePreview} />
+                        <TouchableOpacity style={styles.removeButton} onPress={() => removeImage(0)}>
+                          <Ionicons name="close-circle" size={24} color="red" />
+                        </TouchableOpacity>
+                      </View>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.uploadedImagesSlider}>
+                        {uploadedImages.slice(1).map((imgURL, idx) => (
+                          <View key={idx} style={styles.extraImageContainer}>
+                            <TouchableOpacity onPress={() => openGallery(uploadedImages, idx + 1)}>
+                              <Image source={{ uri: imgURL }} style={styles.extraImagePreview} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.removeButtonExtra} onPress={() => removeImage(idx + 1)}>
+                              <Ionicons name="close-circle" size={20} color="red" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </>
+                  )}
+                </>
               )}
 
               <TouchableOpacity
@@ -414,16 +581,8 @@ const LostDogsScreen = ({ navigation }) => {
               {isEditing && (
                 <TouchableOpacity
                   style={[styles.cancelButton, { backgroundColor: '#B22222' }]}
-                  onPress={async () => {
-                    try {
-                      await deleteDoc(doc(firestore, 'lostFoundDogs', editingAd.id));
-                      setAds(ads.filter((ad) => ad.id !== editingAd.id));
-                      Alert.alert('Успешно', 'Обявата е изтрита.');
-                      resetForm();
-                    } catch {
-                      Alert.alert('Грешка', 'Неуспешно изтриване на обявата.');
-                    }
-                  }}>
+                  onPress={handleDeleteAd}  // Тук се използва handleDeleteAd
+                >
                   <Text style={styles.cancelButtonText}>Изтрий обявата</Text>
                 </TouchableOpacity>
               )}
